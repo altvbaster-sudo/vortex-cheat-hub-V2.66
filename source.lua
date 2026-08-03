@@ -193,7 +193,7 @@ player.CharacterAdded:Connect(function(c)
 end)
 
 -- ============================================================
---  CONFIGURATION - ALL FEATURES WORKING
+--  CONFIGURATION - FIXED
 -- ============================================================
 local cfg = {
     -- ESP
@@ -294,7 +294,130 @@ local function setPanic(on)
 end
 
 -- ============================================================
---  CLEAN ESP SYSTEM
+--  FOV CIRCLE
+-- ============================================================
+local fovGui = Instance.new("ScreenGui")
+fovGui.Name = "FOV"
+fovGui.ResetOnSpawn = false
+fovGui.DisplayOrder = 5
+fovGui.IgnoreGuiInset = true
+fovGui.Parent = player.PlayerGui
+
+local fovCircle = Instance.new("Frame")
+fovCircle.BackgroundTransparency = 1
+fovCircle.BorderSizePixel = 0
+fovCircle.ZIndex = 5
+fovCircle.Visible = false
+fovCircle.Parent = fovGui
+Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1, 0)
+local fovStroke = Instance.new("UIStroke", fovCircle)
+fovStroke.Color = Color3.fromRGB(99, 102, 241)
+fovStroke.Thickness = 1
+fovStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+local function updateFOVCircle()
+    local vis = cfg.aimbot or cfg.softAim or cfg.silentAim
+    fovCircle.Visible = vis
+    if vis then
+        local r = cfg.aimbotFOV
+        local vp = Camera.ViewportSize
+        fovCircle.Size = UDim2.new(0, r * 2, 0, r * 2)
+        fovCircle.Position = UDim2.new(0, vp.X / 2 - r, 0, vp.Y / 2 - r)
+    end
+end
+
+-- ============================================================
+--  CROSSHAIR
+-- ============================================================
+local crosshairGui = Instance.new("ScreenGui")
+crosshairGui.Name = "Crosshair"
+crosshairGui.ResetOnSpawn = false
+crosshairGui.DisplayOrder = 10
+crosshairGui.IgnoreGuiInset = true
+crosshairGui.Parent = player.PlayerGui
+
+local chH = Instance.new("Frame", crosshairGui)
+chH.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+chH.BorderSizePixel = 0
+chH.Visible = false
+
+local chV = Instance.new("Frame", crosshairGui)
+chV.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+chV.BorderSizePixel = 0
+chV.Visible = false
+
+RunService.RenderStepped:Connect(function()
+    local vp = Camera.ViewportSize
+    local cx, cy = vp.X / 2, vp.Y / 2
+    local s = cfg.crosshairSize
+    
+    chH.Visible = cfg.crosshair
+    chV.Visible = cfg.crosshair
+    
+    if cfg.crosshair then
+        chH.Size = UDim2.new(0, s * 2, 0, 2)
+        chH.Position = UDim2.new(0, cx - s, 0, cy - 1)
+        chV.Size = UDim2.new(0, 2, 0, s * 2)
+        chV.Position = UDim2.new(0, cx - 1, 0, cy - s)
+    end
+end)
+
+-- ============================================================
+--  FLY SYSTEM
+-- ============================================================
+local flyPart, flyWeld, flyVelocity, flyConn = nil, nil, nil, nil
+
+local function stopFly()
+    cfg.fly = false
+    if flyConn then flyConn:Disconnect(); flyConn = nil end
+    if flyPart then flyPart:Destroy(); flyPart = nil end
+    flyWeld = nil; flyVelocity = nil
+    local hum = character:FindFirstChildOfClass("Humanoid")
+    if hum then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
+end
+
+local function startFly()
+    local root = character:FindFirstChild("HumanoidRootPart")
+    local hum = character:FindFirstChildOfClass("Humanoid")
+    if not root or not hum then return end
+    cfg.fly = true
+    
+    flyPart = Instance.new("Part")
+    flyPart.Name = "Fly"
+    flyPart.Size = Vector3.new(1, 0.2, 1)
+    flyPart.Transparency = 1
+    flyPart.CanCollide = false
+    flyPart.Anchored = false
+    flyPart.CFrame = root.CFrame
+    flyPart.Parent = workspace
+    
+    flyVelocity = Instance.new("BodyVelocity", flyPart)
+    flyVelocity.Velocity = Vector3.zero
+    flyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    flyVelocity.P = 1e4
+    
+    flyWeld = Instance.new("WeldConstraint", flyPart)
+    flyWeld.Part0 = flyPart
+    flyWeld.Part1 = root
+    
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
+    
+    flyConn = RunService.RenderStepped:Connect(function()
+        if not cfg.fly then stopFly(); return end
+        local cam = Camera.CFrame
+        local dir = Vector3.zero
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
+        flyVelocity.Velocity = dir.Magnitude > 0 and dir.Unit * cfg.flySpeed or Vector3.zero
+    end)
+end
+
+-- ============================================================
+--  ESP SYSTEM - CLEAN VERSION
 -- ============================================================
 local espGui = Instance.new("ScreenGui")
 espGui.Name = "ESP"
@@ -317,7 +440,6 @@ local function createESPObject()
         Bones = {}
     }
     
-    -- Setup box corners
     for _, f in pairs({obj.BoxTL, obj.BoxTR, obj.BoxBL, obj.BoxBR}) do
         f.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         f.BackgroundTransparency = 0
@@ -326,7 +448,6 @@ local function createESPObject()
         f.Visible = false
     end
     
-    -- Health
     obj.HealthBG.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     obj.HealthBG.BorderSizePixel = 0
     obj.HealthBG.Visible = false
@@ -335,7 +456,6 @@ local function createESPObject()
     obj.HealthBar.BorderSizePixel = 0
     obj.HealthBar.Visible = false
     
-    -- Name
     obj.NameLabel.BackgroundTransparency = 1
     obj.NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     obj.NameLabel.TextStrokeTransparency = 0
@@ -346,7 +466,6 @@ local function createESPObject()
     obj.NameLabel.TextXAlignment = Enum.TextXAlignment.Center
     obj.NameLabel.Visible = false
     
-    -- Tracer
     obj.Tracer.AnchorPoint = Vector2.new(0.5, 0.5)
     obj.Tracer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     obj.Tracer.BackgroundTransparency = 0
@@ -354,14 +473,12 @@ local function createESPObject()
     obj.Tracer.Size = UDim2.new(0, 0, 0, 1)
     obj.Tracer.Visible = false
     
-    -- Glow
     obj.Glow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     obj.Glow.BackgroundTransparency = 0.7
     obj.Glow.BorderSizePixel = 0
     obj.Glow.Size = UDim2.new(0, 0, 0, 0)
     obj.Glow.Visible = false
     
-    -- Bones
     for i = 1, 15 do
         local bone = Instance.new("Frame", espGui)
         bone.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -392,8 +509,8 @@ Players.PlayerAdded:Connect(function(p) espObjects[p] = createESPObject() end)
 Players.PlayerRemoving:Connect(function(p) espObjects[p] = nil end)
 
 local function w2s(pos)
-    local screenPos, onScreen = Camera:WorldToViewportPoint(pos)
-    return Vector2.new(screenPos.X, screenPos.Y), onScreen
+    local sp, vis = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(sp.X, sp.Y), vis
 end
 
 local function getBox(char)
@@ -488,7 +605,6 @@ RunService.RenderStepped:Connect(function()
             color = Color3.fromRGB(255, 255, 255)
         end
         
-        -- Get bounding box
         local box = getBox(char)
         if not box then continue end
         
@@ -509,9 +625,6 @@ RunService.RenderStepped:Connect(function()
         -- BOXES
         if cfg.espBoxes then
             if cfg.espBoxStyle == "full" then
-                -- Full box (4 lines)
-                local top = Instance.new("Frame")
-                -- Actually use the existing corners but make them full lines
                 obj.BoxTL.Position = UDim2.new(0, x, 0, y)
                 obj.BoxTL.Size = UDim2.new(0, w, 0, t)
                 obj.BoxTL.BackgroundColor3 = color
@@ -532,7 +645,6 @@ RunService.RenderStepped:Connect(function()
                 obj.BoxBR.BackgroundColor3 = color
                 obj.BoxBR.Visible = true
             else
-                -- Corner box
                 obj.BoxTL.Position = UDim2.new(0, x, 0, y)
                 obj.BoxTL.Size = UDim2.new(0, cs, 0, t)
                 obj.BoxTL.BackgroundColor3 = color
@@ -640,7 +752,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  AIMBOT SYSTEM
+--  AIMBOT
 -- ============================================================
 local function getTarget()
     local best, bestDist = nil, math.huge
@@ -676,6 +788,7 @@ local function getTarget()
 end
 
 RunService.RenderStepped:Connect(function()
+    updateFOVCircle()
     local target = getTarget()
     if not target then return end
     
@@ -697,60 +810,6 @@ RunService.RenderStepped:Connect(function()
         end)
     end
 end)
-
--- ============================================================
---  FLY SYSTEM
--- ============================================================
-local flyPart, flyWeld, flyVelocity, flyConn = nil, nil, nil, nil
-
-local function stopFly()
-    cfg.fly = false
-    if flyConn then flyConn:Disconnect(); flyConn = nil end
-    if flyPart then flyPart:Destroy(); flyPart = nil end
-    flyWeld = nil; flyVelocity = nil
-    local hum = character:FindFirstChildOfClass("Humanoid")
-    if hum then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
-end
-
-local function startFly()
-    local root = character:FindFirstChild("HumanoidRootPart")
-    local hum = character:FindFirstChildOfClass("Humanoid")
-    if not root or not hum then return end
-    cfg.fly = true
-    
-    flyPart = Instance.new("Part")
-    flyPart.Name = "Fly"
-    flyPart.Size = Vector3.new(1, 0.2, 1)
-    flyPart.Transparency = 1
-    flyPart.CanCollide = false
-    flyPart.Anchored = false
-    flyPart.CFrame = root.CFrame
-    flyPart.Parent = workspace
-    
-    flyVelocity = Instance.new("BodyVelocity", flyPart)
-    flyVelocity.Velocity = Vector3.zero
-    flyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-    flyVelocity.P = 1e4
-    
-    flyWeld = Instance.new("WeldConstraint", flyPart)
-    flyWeld.Part0 = flyPart
-    flyWeld.Part1 = root
-    
-    hum:ChangeState(Enum.HumanoidStateType.Physics)
-    
-    flyConn = RunService.RenderStepped:Connect(function()
-        if not cfg.fly then stopFly(); return end
-        local cam = Camera.CFrame
-        local dir = Vector3.zero
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
-        flyVelocity.Velocity = dir.Magnitude > 0 and dir.Unit * cfg.flySpeed or Vector3.zero
-    end)
-end
 
 -- ============================================================
 --  MOVEMENT SYSTEMS
@@ -912,40 +971,6 @@ RunService.Heartbeat:Connect(function(dt)
 end)
 
 -- ============================================================
---  CROSSHAIR
--- ============================================================
-local crosshairGui = Instance.new("ScreenGui")
-crosshairGui.Name = "Crosshair"
-crosshairGui.ResetOnSpawn = false
-crosshairGui.Parent = player.PlayerGui
-
-local chH = Instance.new("Frame", crosshairGui)
-chH.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-chH.BorderSizePixel = 0
-chH.Visible = false
-
-local chV = Instance.new("Frame", crosshairGui)
-chV.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-chV.BorderSizePixel = 0
-chV.Visible = false
-
-RunService.RenderStepped:Connect(function()
-    local vp = Camera.ViewportSize
-    local cx, cy = vp.X / 2, vp.Y / 2
-    local s = cfg.crosshairSize
-    
-    chH.Visible = cfg.crosshair
-    chV.Visible = cfg.crosshair
-    
-    if cfg.crosshair then
-        chH.Size = UDim2.new(0, s * 2, 0, 2)
-        chH.Position = UDim2.new(0, cx - s, 0, cy - 1)
-        chV.Size = UDim2.new(0, 2, 0, s * 2)
-        chV.Position = UDim2.new(0, cx - 1, 0, cy - s)
-    end
-end)
-
--- ============================================================
 --  RAYFIELD UI - ALL TABS WORKING
 -- ============================================================
 local function createMainMenu()
@@ -1079,7 +1104,7 @@ local function createMainMenu()
     TabVisuals:CreateSlider({Name="FOV Value", Range={40, 120}, Increment=1, CurrentValue=cfg.fovVal, Callback=function(v) cfg.fovVal = v end})
     TabVisuals:CreateSlider({Name="Crosshair Size", Range={5, 30}, Increment=1, CurrentValue=cfg.crosshairSize, Callback=function(v) cfg.crosshairSize = v end})
 
-    -- ====== KEY INFO TAB ======
+    -- ====== INFO TAB ======
     local TabInfo = Window:CreateTab("Info", 4483362458)
     
     TabInfo:CreateSection("Vortex Hub v" .. VERSION)
