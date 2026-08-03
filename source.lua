@@ -195,10 +195,9 @@ player.CharacterAdded:Connect(function(c)
 end)
 
 -- ============================================================
---  CONFIGURATION - FIXED
+--  CONFIGURATION
 -- ============================================================
 local cfg = {
-    -- ESP
     esp = true,
     espBoxes = true,
     espNames = true,
@@ -210,9 +209,7 @@ local cfg = {
     espMaxDistance = 2000,
     espMaxPlayers = 30,
     espGlow = true,
-    espBoxStyle = "corner",
-    
-    -- Aimbot
+    espBoxStyle = "full",
     aimbot = false,
     aimbotFOV = 120,
     aimbotSmooth = 5,
@@ -222,8 +219,6 @@ local cfg = {
     softAim = false,
     softAimStr = 5,
     silentAim = false,
-    
-    -- Movement
     noclip = false,
     fly = false,
     flySpeed = 60,
@@ -238,16 +233,12 @@ local cfg = {
     autoSprint = false,
     thirdPerson = false,
     antiAfk = false,
-    
-    -- Combat
     hitboxExpander = false,
     hitboxSize = 10,
     spinBot = false,
     spinSpeed = 10,
     killAura = false,
     killAuraRange = 20,
-    
-    -- Visuals
     fovChanger = false,
     fovVal = 70,
     fullbright = false,
@@ -353,10 +344,8 @@ RunService.RenderStepped:Connect(function()
     local vp = Camera.ViewportSize
     local cx, cy = vp.X / 2, vp.Y / 2
     local s = cfg.crosshairSize
-    
     chH.Visible = cfg.crosshair
     chV.Visible = cfg.crosshair
-    
     if cfg.crosshair then
         chH.Size = UDim2.new(0, s * 2, 0, 2)
         chH.Position = UDim2.new(0, cx - s, 0, cy - 1)
@@ -366,80 +355,81 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  FLY SYSTEM - FIXED
+--  FLY SYSTEM - ORIGINAL V3.0 (More Undetectable)
 -- ============================================================
-local flyPart, flyWeld, flyVelocity, flyConn, flyGyro = nil, nil, nil, nil, nil
+local flyPart, flyWeld, flyVelocity, flyGyro, flyConn = nil, nil, nil, nil, nil
 
 local function stopFly()
     cfg.fly = false
     if flyConn then flyConn:Disconnect(); flyConn = nil end
     if flyPart then flyPart:Destroy(); flyPart = nil end
     flyWeld = nil; flyVelocity = nil; flyGyro = nil
-    local hum = character:FindFirstChildOfClass("Humanoid")
+    local hum = character and character:FindFirstChildOfClass("Humanoid")
     if hum then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
 end
 
 local function startFly()
-    local root = character:FindFirstChild("HumanoidRootPart")
-    local hum = character:FindFirstChildOfClass("Humanoid")
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    local hum = character and character:FindFirstChildOfClass("Humanoid")
     if not root or not hum then return end
     cfg.fly = true
-    
+
     flyPart = Instance.new("Part")
-    flyPart.Name = "Fly"
+    flyPart.Name = "FlyCarrier"
     flyPart.Size = Vector3.new(1, 0.2, 1)
     flyPart.Transparency = 1
     flyPart.CanCollide = false
     flyPart.Anchored = false
     flyPart.CFrame = root.CFrame
     flyPart.Parent = workspace
-    
+
     flyVelocity = Instance.new("BodyVelocity", flyPart)
     flyVelocity.Velocity = Vector3.zero
     flyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
     flyVelocity.P = 1e4
-    
+
     flyGyro = Instance.new("BodyGyro", flyPart)
     flyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
     flyGyro.P = 1e4
     flyGyro.D = 100
     flyGyro.CFrame = flyPart.CFrame
-    
+
     flyWeld = Instance.new("WeldConstraint", flyPart)
     flyWeld.Part0 = flyPart
     flyWeld.Part1 = root
-    
+
     hum:ChangeState(Enum.HumanoidStateType.Physics)
-    
+
     flyConn = RunService.RenderStepped:Connect(function()
         if not cfg.fly then stopFly(); return end
-        
-        local root = character:FindFirstChild("HumanoidRootPart")
-        if not root then stopFly(); return end
-        
+        local r2 = character and character:FindFirstChild("HumanoidRootPart")
+        if not r2 then stopFly(); return end
+
         local cam = Camera.CFrame
+        local fwd = cam.LookVector
+        local rgt = cam.RightVector
+        local up = Vector3.new(0, 1, 0)
         local dir = Vector3.zero
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
-        
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + fwd end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - fwd end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - rgt end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + rgt end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + up end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - up end
+
         flyVelocity.Velocity = dir.Magnitude > 0 and dir.Unit * cfg.flySpeed or Vector3.zero
-        
-        -- Sync gyro with spin bot
-        if cfg.spinBot then
-            flyGyro.CFrame = root.CFrame
+
+        if cfg.spinBot and r2 then
+            flyGyro.CFrame = r2.CFrame
         else
-            flyGyro.CFrame = CFrame.new(Vector3.zero, Vector3.new(cam.LookVector.X, 0, cam.LookVector.Z))
+            flyGyro.CFrame = CFrame.new(Vector3.zero, Vector3.new(fwd.X, 0, fwd.Z))
         end
     end)
 end
 
 -- ============================================================
---  ESP SYSTEM - COMPLETELY REWRITTEN
+--  ESP SYSTEM - FIXED HITBOX ALIGNMENT
 -- ============================================================
 local espGui = Instance.new("ScreenGui")
 espGui.Name = "ESP"
@@ -450,10 +440,12 @@ local espObjects = {}
 
 local function createESPObject()
     local obj = {
-        BoxTL = Instance.new("Frame", espGui),
-        BoxTR = Instance.new("Frame", espGui),
-        BoxBL = Instance.new("Frame", espGui),
-        BoxBR = Instance.new("Frame", espGui),
+        Box = {
+            T = Instance.new("Frame", espGui),
+            B = Instance.new("Frame", espGui),
+            L = Instance.new("Frame", espGui),
+            R = Instance.new("Frame", espGui),
+        },
         HealthBG = Instance.new("Frame", espGui),
         HealthBar = Instance.new("Frame", espGui),
         NameLabel = Instance.new("TextLabel", espGui),
@@ -463,8 +455,7 @@ local function createESPObject()
         DistanceLabel = Instance.new("TextLabel", espGui)
     }
     
-    -- Box corners
-    for _, f in pairs({obj.BoxTL, obj.BoxTR, obj.BoxBL, obj.BoxBR}) do
+    for _, f in pairs(obj.Box) do
         f.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         f.BackgroundTransparency = 0
         f.BorderSizePixel = 0
@@ -472,7 +463,6 @@ local function createESPObject()
         f.Visible = false
     end
     
-    -- Health
     obj.HealthBG.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     obj.HealthBG.BorderSizePixel = 0
     obj.HealthBG.Visible = false
@@ -481,7 +471,6 @@ local function createESPObject()
     obj.HealthBar.BorderSizePixel = 0
     obj.HealthBar.Visible = false
     
-    -- Name
     obj.NameLabel.BackgroundTransparency = 1
     obj.NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     obj.NameLabel.TextStrokeTransparency = 0
@@ -492,7 +481,6 @@ local function createESPObject()
     obj.NameLabel.TextXAlignment = Enum.TextXAlignment.Center
     obj.NameLabel.Visible = false
     
-    -- Distance
     obj.DistanceLabel.BackgroundTransparency = 1
     obj.DistanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     obj.DistanceLabel.TextStrokeTransparency = 0
@@ -503,7 +491,6 @@ local function createESPObject()
     obj.DistanceLabel.TextXAlignment = Enum.TextXAlignment.Center
     obj.DistanceLabel.Visible = false
     
-    -- Tracer
     obj.Tracer.AnchorPoint = Vector2.new(0.5, 0.5)
     obj.Tracer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     obj.Tracer.BackgroundTransparency = 0.5
@@ -511,14 +498,12 @@ local function createESPObject()
     obj.Tracer.Size = UDim2.new(0, 0, 0, 1)
     obj.Tracer.Visible = false
     
-    -- Glow
     obj.Glow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     obj.Glow.BackgroundTransparency = 0.8
     obj.Glow.BorderSizePixel = 0
     obj.Glow.Size = UDim2.new(0, 0, 0, 0)
     obj.Glow.Visible = false
     
-    -- Bones
     for i = 1, 15 do
         local bone = Instance.new("Frame", espGui)
         bone.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -553,10 +538,12 @@ local function w2s(pos)
     return Vector2.new(sp.X, sp.Y), vis
 end
 
-local function getBox(char)
+-- FIXED: Better bounding box calculation
+local function getBounds(char)
     local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
     local valid = false
     
+    -- Use all parts for better hitbox alignment
     for _, part in pairs(char:GetChildren()) do
         if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
             local pos, vis = Camera:WorldToViewportPoint(part.Position)
@@ -570,8 +557,28 @@ local function getBox(char)
         end
     end
     
+    -- Also check HumanoidRootPart for bottom
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root then
+        local pos, vis = Camera:WorldToViewportPoint(root.Position)
+        if vis then
+            valid = true
+            minX = math.min(minX, pos.X)
+            minY = math.min(minY, pos.Y)
+            maxX = math.max(maxX, pos.X)
+            maxY = math.max(maxY, pos.Y)
+        end
+    end
+    
     if valid then
-        return {x = minX, y = minY, w = maxX - minX, h = maxY - minY, cx = (minX + maxX) / 2, cy = (minY + maxY) / 2}
+        return {
+            x = minX - 2,
+            y = minY - 2,
+            w = maxX - minX + 4,
+            h = maxY - minY + 4,
+            cx = (minX + maxX) / 2,
+            cy = (minY + maxY) / 2
+        }
     end
     return nil
 end
@@ -580,11 +587,13 @@ RunService.RenderStepped:Connect(function()
     if not cfg.esp then
         for _, obj in pairs(espObjects) do
             if obj then
-                obj.BoxTL.Visible = false; obj.BoxTR.Visible = false
-                obj.BoxBL.Visible = false; obj.BoxBR.Visible = false
-                obj.HealthBG.Visible = false; obj.HealthBar.Visible = false
-                obj.NameLabel.Visible = false; obj.DistanceLabel.Visible = false
-                obj.Tracer.Visible = false; obj.Glow.Visible = false
+                for _, f in pairs(obj.Box) do f.Visible = false end
+                obj.HealthBG.Visible = false
+                obj.HealthBar.Visible = false
+                obj.NameLabel.Visible = false
+                obj.DistanceLabel.Visible = false
+                obj.Tracer.Visible = false
+                obj.Glow.Visible = false
                 for _, b in ipairs(obj.Bones) do b.Visible = false end
             end
         end
@@ -602,33 +611,26 @@ RunService.RenderStepped:Connect(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         
         if not (char and hum and root) or hum.Health <= 0 then
-            obj.BoxTL.Visible = false; obj.BoxTR.Visible = false
-            obj.BoxBL.Visible = false; obj.BoxBR.Visible = false
-            obj.HealthBG.Visible = false; obj.HealthBar.Visible = false
-            obj.NameLabel.Visible = false; obj.DistanceLabel.Visible = false
-            obj.Tracer.Visible = false; obj.Glow.Visible = false
+            for _, f in pairs(obj.Box) do f.Visible = false end
+            obj.HealthBG.Visible = false
+            obj.HealthBar.Visible = false
+            obj.NameLabel.Visible = false
+            obj.DistanceLabel.Visible = false
+            obj.Tracer.Visible = false
+            obj.Glow.Visible = false
             for _, b in ipairs(obj.Bones) do b.Visible = false end
             continue
         end
         
         local dist = (root.Position - rootPart.Position).Magnitude
         if dist > cfg.espMaxDistance then
-            obj.BoxTL.Visible = false; obj.BoxTR.Visible = false
-            obj.BoxBL.Visible = false; obj.BoxBR.Visible = false
-            obj.HealthBG.Visible = false; obj.HealthBar.Visible = false
-            obj.NameLabel.Visible = false; obj.DistanceLabel.Visible = false
-            obj.Tracer.Visible = false; obj.Glow.Visible = false
-            for _, b in ipairs(obj.Bones) do b.Visible = false end
-            continue
-        end
-        
-        local rootPos, onScreen = w2s(root.Position)
-        if not onScreen then
-            obj.BoxTL.Visible = false; obj.BoxTR.Visible = false
-            obj.BoxBL.Visible = false; obj.BoxBR.Visible = false
-            obj.HealthBG.Visible = false; obj.HealthBar.Visible = false
-            obj.NameLabel.Visible = false; obj.DistanceLabel.Visible = false
-            obj.Tracer.Visible = false; obj.Glow.Visible = false
+            for _, f in pairs(obj.Box) do f.Visible = false end
+            obj.HealthBG.Visible = false
+            obj.HealthBar.Visible = false
+            obj.NameLabel.Visible = false
+            obj.DistanceLabel.Visible = false
+            obj.Tracer.Visible = false
+            obj.Glow.Visible = false
             for _, b in ipairs(obj.Bones) do b.Visible = false end
             continue
         end
@@ -645,13 +647,12 @@ RunService.RenderStepped:Connect(function()
             color = Color3.fromRGB(255, 255, 255)
         end
         
-        local box = getBox(char)
+        local box = getBounds(char)
         if not box then continue end
         
         local x, y, w, h = box.x, box.y, box.w, box.h
         local cx, cy = box.cx, box.cy
         local t = 2
-        local cs = math.min(10, w / 4)
         
         -- GLOW
         if cfg.espGlow then
@@ -663,52 +664,57 @@ RunService.RenderStepped:Connect(function()
             obj.Glow.Visible = false
         end
         
-        -- BOXES
+        -- BOX - FULL BOX (4 sides)
         if cfg.espBoxes then
             if cfg.espBoxStyle == "full" then
-                obj.BoxTL.Position = UDim2.new(0, x, 0, y)
-                obj.BoxTL.Size = UDim2.new(0, w, 0, t)
-                obj.BoxTL.BackgroundColor3 = color
-                obj.BoxTL.Visible = true
+                -- Top
+                obj.Box.T.Position = UDim2.new(0, x, 0, y)
+                obj.Box.T.Size = UDim2.new(0, w, 0, t)
+                obj.Box.T.BackgroundColor3 = color
+                obj.Box.T.Visible = true
                 
-                obj.BoxTR.Position = UDim2.new(0, x, 0, y + h - t)
-                obj.BoxTR.Size = UDim2.new(0, w, 0, t)
-                obj.BoxTR.BackgroundColor3 = color
-                obj.BoxTR.Visible = true
+                -- Bottom
+                obj.Box.B.Position = UDim2.new(0, x, 0, y + h - t)
+                obj.Box.B.Size = UDim2.new(0, w, 0, t)
+                obj.Box.B.BackgroundColor3 = color
+                obj.Box.B.Visible = true
                 
-                obj.BoxBL.Position = UDim2.new(0, x, 0, y)
-                obj.BoxBL.Size = UDim2.new(0, t, 0, h)
-                obj.BoxBL.BackgroundColor3 = color
-                obj.BoxBL.Visible = true
+                -- Left
+                obj.Box.L.Position = UDim2.new(0, x, 0, y)
+                obj.Box.L.Size = UDim2.new(0, t, 0, h)
+                obj.Box.L.BackgroundColor3 = color
+                obj.Box.L.Visible = true
                 
-                obj.BoxBR.Position = UDim2.new(0, x + w - t, 0, y)
-                obj.BoxBR.Size = UDim2.new(0, t, 0, h)
-                obj.BoxBR.BackgroundColor3 = color
-                obj.BoxBR.Visible = true
+                -- Right
+                obj.Box.R.Position = UDim2.new(0, x + w - t, 0, y)
+                obj.Box.R.Size = UDim2.new(0, t, 0, h)
+                obj.Box.R.BackgroundColor3 = color
+                obj.Box.R.Visible = true
             else
-                obj.BoxTL.Position = UDim2.new(0, x, 0, y)
-                obj.BoxTL.Size = UDim2.new(0, cs, 0, t)
-                obj.BoxTL.BackgroundColor3 = color
-                obj.BoxTL.Visible = true
+                -- Corner style
+                local cs = math.min(10, w / 4)
+                obj.Box.T.Position = UDim2.new(0, x, 0, y)
+                obj.Box.T.Size = UDim2.new(0, cs, 0, t)
+                obj.Box.T.BackgroundColor3 = color
+                obj.Box.T.Visible = true
                 
-                obj.BoxTR.Position = UDim2.new(0, x + w - cs, 0, y)
-                obj.BoxTR.Size = UDim2.new(0, cs, 0, t)
-                obj.BoxTR.BackgroundColor3 = color
-                obj.BoxTR.Visible = true
+                obj.Box.B.Position = UDim2.new(0, x + w - cs, 0, y)
+                obj.Box.B.Size = UDim2.new(0, cs, 0, t)
+                obj.Box.B.BackgroundColor3 = color
+                obj.Box.B.Visible = true
                 
-                obj.BoxBL.Position = UDim2.new(0, x, 0, y + h - t)
-                obj.BoxBL.Size = UDim2.new(0, cs, 0, t)
-                obj.BoxBL.BackgroundColor3 = color
-                obj.BoxBL.Visible = true
+                obj.Box.L.Position = UDim2.new(0, x, 0, y + h - t)
+                obj.Box.L.Size = UDim2.new(0, cs, 0, t)
+                obj.Box.L.BackgroundColor3 = color
+                obj.Box.L.Visible = true
                 
-                obj.BoxBR.Position = UDim2.new(0, x + w - cs, 0, y + h - t)
-                obj.BoxBR.Size = UDim2.new(0, cs, 0, t)
-                obj.BoxBR.BackgroundColor3 = color
-                obj.BoxBR.Visible = true
+                obj.Box.R.Position = UDim2.new(0, x + w - cs, 0, y + h - t)
+                obj.Box.R.Size = UDim2.new(0, cs, 0, t)
+                obj.Box.R.BackgroundColor3 = color
+                obj.Box.R.Visible = true
             end
         else
-            obj.BoxTL.Visible = false; obj.BoxTR.Visible = false
-            obj.BoxBL.Visible = false; obj.BoxBR.Visible = false
+            for _, f in pairs(obj.Box) do f.Visible = false end
         end
         
         -- HEALTH
@@ -799,7 +805,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  AIMBOT - FIXED SILENT AIM
+--  AIMBOT
 -- ============================================================
 local function getTarget()
     local best, bestDist = nil, math.huge
@@ -826,7 +832,7 @@ local function getTarget()
         
         local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
         if dist < cfg.aimbotFOV and dist < bestDist then
-            best = {pos = targetPos, part = aimPart}
+            best = {pos = targetPos}
             bestDist = dist
         end
     end
@@ -834,68 +840,43 @@ local function getTarget()
     return best
 end
 
--- Silent aim state
-local silentAimActive = false
-
 RunService.RenderStepped:Connect(function()
     updateFOVCircle()
     
-    -- Silent Aim
-    if cfg.silentAim then
-        local target = getTarget()
-        if target then
-            silentAimActive = true
-            local savedCF = Camera.CFrame
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.pos)
-            -- Reset after render step
-            task.spawn(function()
-                wait(0.016)
-                if cfg.silentAim and Camera then
-                    Camera.CFrame = savedCF
-                end
-                silentAimActive = false
-            end)
-        end
-    end
+    local target = getTarget()
+    if not target then return end
     
-    -- Normal Aimbot
     if cfg.aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local target = getTarget()
-        if target then
-            local smooth = cfg.aimbotSmooth / 10
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.pos), smooth)
-        end
+        local smooth = cfg.aimbotSmooth / 10
+        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.pos), smooth)
     end
     
-    -- Soft Aim
     if cfg.softAim and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        local target = getTarget()
-        if target then
-            local smooth = math.clamp(cfg.softAimStr / 50, 0.02, 0.3)
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.pos), smooth)
-        end
+        local smooth = math.clamp(cfg.softAimStr / 50, 0.02, 0.3)
+        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.pos), smooth)
+    end
+    
+    if cfg.silentAim then
+        local savedCF = Camera.CFrame
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.pos)
+        task.defer(function()
+            if cfg.silentAim then Camera.CFrame = savedCF end
+        end)
     end
 end)
 
 -- ============================================================
---  MOVEMENT SYSTEMS - FIXED LIGHTING
+--  MOVEMENT SYSTEMS
 -- ============================================================
 RunService.RenderStepped:Connect(function()
-    -- Third Person
     if cfg.thirdPerson and character then
         local root = character:FindFirstChild("HumanoidRootPart")
         if root then
             Camera.CameraSubject = root
             Camera.CameraType = Enum.CameraType.Custom
         end
-    elseif not cfg.thirdPerson then
-        if Camera.CameraType == Enum.CameraType.Custom then
-            Camera.CameraSubject = nil
-            Camera.CameraType = Enum.CameraType.Custom
-        end
     end
     
-    -- Auto Sprint
     if cfg.autoSprint and character then
         local hum = character:FindFirstChildOfClass("Humanoid")
         if hum then
@@ -903,29 +884,24 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Speed
     if cfg.speed and character then
         local hum = character:FindFirstChildOfClass("Humanoid")
         if hum then hum.WalkSpeed = cfg.speedVal end
     end
     
-    -- Jump Power
     if cfg.jumpPower and character then
         local hum = character:FindFirstChildOfClass("Humanoid")
         if hum then hum.JumpPower = cfg.jumpVal end
     end
     
-    -- Gravity
     if cfg.gravity then
         workspace.Gravity = DEFAULT_GRAVITY * (cfg.gravityVal / 100)
     end
     
-    -- FOV
     if cfg.fovChanger then
         Camera.FieldOfView = cfg.fovVal
     end
     
-    -- Fullbright - FIXED (doesn't mess with lighting when off)
     if cfg.fullbright then
         Lighting.Brightness = 10
         Lighting.ClockTime = 14
@@ -1038,21 +1014,18 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================
---  SPIN BOT - FIXED (works with shiftlock)
+--  SPIN BOT
 -- ============================================================
 RunService.Heartbeat:Connect(function(dt)
     if cfg.spinBot then
         local root = character:FindFirstChild("HumanoidRootPart")
         if root then
-            -- Rotate the root part continuously
             root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(cfg.spinSpeed * dt * 60), 0)
-            -- Disable auto-rotate
             if humanoid then
                 humanoid.AutoRotate = false
             end
         end
     else
-        -- Re-enable auto-rotate when spin bot is off
         if humanoid and not humanoid.AutoRotate then
             humanoid.AutoRotate = true
         end
@@ -1060,7 +1033,7 @@ RunService.Heartbeat:Connect(function(dt)
 end)
 
 -- ============================================================
---  RAYFIELD UI - ALL TABS WORKING
+--  RAYFIELD UI
 -- ============================================================
 local function createMainMenu()
     local Window = Rayfield:CreateWindow({
@@ -1081,9 +1054,8 @@ local function createMainMenu()
         end
     end)
 
-    -- ====== ESP TAB ======
+    -- ESP TAB
     local TabESP = Window:CreateTab("ESP", 4483362458)
-    
     TabESP:CreateSection("ESP Settings")
     TabESP:CreateToggle({Name="Enable ESP", CurrentValue=cfg.esp, Callback=function(v) cfg.esp = v end})
     TabESP:CreateToggle({Name="Boxes", CurrentValue=cfg.espBoxes, Callback=function(v) cfg.espBoxes = v end})
@@ -1097,7 +1069,7 @@ local function createMainMenu()
     
     TabESP:CreateDropdown({
         Name="Box Style",
-        Options={"corner", "full"},
+        Options={"full", "corner"},
         CurrentOption={cfg.espBoxStyle},
         Callback=function(v)
             if type(v) == "table" then v = v[1] end
@@ -1106,24 +1078,11 @@ local function createMainMenu()
     })
     
     TabESP:CreateSection("Performance")
-    TabESP:CreateSlider({
-        Name="Max Distance",
-        Range={100, 5000},
-        Increment=50,
-        CurrentValue=cfg.espMaxDistance,
-        Callback=function(v) cfg.espMaxDistance = v end
-    })
-    TabESP:CreateSlider({
-        Name="Max Players",
-        Range={5, 50},
-        Increment=1,
-        CurrentValue=cfg.espMaxPlayers,
-        Callback=function(v) cfg.espMaxPlayers = v end
-    })
+    TabESP:CreateSlider({Name="Max Distance", Range={100, 5000}, Increment=50, CurrentValue=cfg.espMaxDistance, Callback=function(v) cfg.espMaxDistance = v end})
+    TabESP:CreateSlider({Name="Max Players", Range={5, 50}, Increment=1, CurrentValue=cfg.espMaxPlayers, Callback=function(v) cfg.espMaxPlayers = v end})
 
-    -- ====== AIMBOT TAB ======
+    -- AIMBOT TAB
     local TabAimbot = Window:CreateTab("Aimbot", 4483362458)
-    
     TabAimbot:CreateSection("Aimbot")
     TabAimbot:CreateToggle({Name="Aimbot [Hold RMB]", CurrentValue=cfg.aimbot, Callback=function(v) cfg.aimbot = v end})
     TabAimbot:CreateToggle({Name="Soft Aim [Hold LMB]", CurrentValue=cfg.softAim, Callback=function(v) cfg.softAim = v end})
@@ -1145,9 +1104,8 @@ local function createMainMenu()
     TabAimbot:CreateSlider({Name="Smoothness", Range={1, 10}, Increment=1, CurrentValue=cfg.aimbotSmooth, Callback=function(v) cfg.aimbotSmooth = v end})
     TabAimbot:CreateSlider({Name="Soft Aim Strength", Range={1, 10}, Increment=1, CurrentValue=cfg.softAimStr, Callback=function(v) cfg.softAimStr = v end})
 
-    -- ====== MOVEMENT TAB ======
+    -- MOVEMENT TAB
     local TabMovement = Window:CreateTab("Movement", 4483362458)
-    
     TabMovement:CreateSection("Movement")
     TabMovement:CreateToggle({Name="Fly [V]", CurrentValue=cfg.fly, Callback=function(v) cfg.fly = v; if v then startFly() else stopFly() end end})
     TabMovement:CreateToggle({Name="Speed Hack", CurrentValue=cfg.speed, Callback=function(v) cfg.speed = v end})
@@ -1166,9 +1124,8 @@ local function createMainMenu()
     TabMovement:CreateSlider({Name="Jump Height", Range={50, 500}, Increment=5, CurrentValue=cfg.jumpVal, Callback=function(v) cfg.jumpVal = v end})
     TabMovement:CreateSlider({Name="Gravity %", Range={0, 200}, Increment=5, CurrentValue=cfg.gravityVal, Callback=function(v) cfg.gravityVal = v end})
 
-    -- ====== COMBAT TAB ======
+    -- COMBAT TAB
     local TabCombat = Window:CreateTab("Combat", 4483362458)
-    
     TabCombat:CreateSection("Combat")
     TabCombat:CreateToggle({Name="Spin Bot", CurrentValue=cfg.spinBot, Callback=function(v) cfg.spinBot = v end})
     TabCombat:CreateToggle({Name="Kill Aura", CurrentValue=cfg.killAura, Callback=function(v) cfg.killAura = v end})
@@ -1179,9 +1136,8 @@ local function createMainMenu()
     TabCombat:CreateSlider({Name="Kill Aura Range", Range={5, 100}, Increment=1, CurrentValue=cfg.killAuraRange, Callback=function(v) cfg.killAuraRange = v end})
     TabCombat:CreateSlider({Name="Hitbox Size", Range={4, 50}, Increment=1, CurrentValue=cfg.hitboxSize, Callback=function(v) cfg.hitboxSize = v end})
 
-    -- ====== VISUALS TAB ======
+    -- VISUALS TAB
     local TabVisuals = Window:CreateTab("Visuals", 4483362458)
-    
     TabVisuals:CreateSection("Visuals")
     TabVisuals:CreateToggle({Name="FOV Changer", CurrentValue=cfg.fovChanger, Callback=function(v) cfg.fovChanger = v end})
     TabVisuals:CreateToggle({Name="Fullbright", CurrentValue=cfg.fullbright, Callback=function(v) cfg.fullbright = v end})
@@ -1193,9 +1149,8 @@ local function createMainMenu()
     TabVisuals:CreateSlider({Name="FOV Value", Range={40, 120}, Increment=1, CurrentValue=cfg.fovVal, Callback=function(v) cfg.fovVal = v end})
     TabVisuals:CreateSlider({Name="Crosshair Size", Range={5, 30}, Increment=1, CurrentValue=cfg.crosshairSize, Callback=function(v) cfg.crosshairSize = v end})
 
-    -- ====== INFO TAB ======
+    -- INFO TAB
     local TabInfo = Window:CreateTab("Info", 4483362458)
-    
     TabInfo:CreateSection("Vortex Hub v" .. VERSION)
     TabInfo:CreateLabel("Press ; to toggle menu")
     TabInfo:CreateLabel("Hold RMB for Aimbot")
@@ -1226,20 +1181,14 @@ local function createMainMenu()
         end
     })
 
-    -- ============================================================
-    --  INPUT BINDINGS
-    -- ============================================================
+    -- INPUT BINDINGS
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         
         if input.KeyCode == Enum.KeyCode.RightControl then
             setPanic(not panicOn)
             if panicOn then stopFly() end
-            Rayfield:Notify({
-                Title="Panic",
-                Content=panicOn and "Panic ON" or "Panic OFF",
-                Duration=2
-            })
+            Rayfield:Notify({Title="Panic", Content=panicOn and "Panic ON" or "Panic OFF", Duration=2})
         end
         
         if input.KeyCode == Enum.KeyCode.V then
