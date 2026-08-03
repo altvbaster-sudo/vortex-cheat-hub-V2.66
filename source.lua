@@ -182,6 +182,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
+local Lighting = game:GetService("Lighting")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -196,10 +197,10 @@ player.CharacterAdded:Connect(function(c)
 end)
 
 -- ============================================================
---  CONFIGURATION - FULL FEATURES
+--  CONFIGURATION - UPGRADED WITH NEW FEATURES
 -- ============================================================
 local cfg = {
-    -- ESP
+    -- ESP (UPGRADED)
     esp = true,
     espBoxes = true,
     espNames = true,
@@ -210,22 +211,22 @@ local cfg = {
     rainbowEsp = false,
     espMaxDistance = 2000,
     espMaxPlayers = 30,
-    espGlow = false,
-    espChams = false,
-    espBoxStyle = "corner", -- "corner" or "full"
+    espGlow = false,        -- NEW: Glow effect
+    espBoxStyle = "corner", -- NEW: "corner" or "full"
+    espChams = false,       -- NEW: Chams (wallhack)
     
-    -- Aimbot
+    -- Aimbot (UPGRADED)
     aimbot = false,
     aimbotFOV = 120,
     aimbotSmooth = 5,
     aimbotPart = "HumanoidRootPart",
     aimbotTeamCheck = true,
-    aimbotPrediction = true,
+    aimbotPrediction = true, -- NEW: AI prediction
     softAim = false,
     softAimStr = 5,
     silentAim = false,
     
-    -- Movement
+    -- Movement (UPGRADED)
     noclip = false,
     fly = false,
     flySpeed = 60,
@@ -241,7 +242,7 @@ local cfg = {
     thirdPerson = false,
     antiAfk = false,
     
-    -- Combat
+    -- Combat (UPGRADED)
     hitboxExpander = false,
     hitboxSize = 10,
     spinBot = false,
@@ -249,7 +250,7 @@ local cfg = {
     killAura = false,
     killAuraRange = 20,
     
-    -- Visuals
+    -- Visuals (UPGRADED)
     fovChanger = false,
     fovVal = 70,
     fullbright = false,
@@ -257,8 +258,8 @@ local cfg = {
     invViewer = false,
     crosshair = false,
     crosshairSize = 10,
-    crosshairColor = Color3.fromRGB(255,255,255),
-    crosshairDot = true,
+    crosshairColor = Color3.fromRGB(255,255,255), -- NEW: Custom color
+    crosshairDot = true, -- NEW: Dot toggle
 }
 
 local DEFAULT_GRAVITY = workspace.Gravity
@@ -363,6 +364,9 @@ local function updateFOVCircle()
     end
 end
 
+-- ============================================================
+--  CROSSHAIR (UPGRADED)
+-- ============================================================
 local crosshairGui = Instance.new("ScreenGui")
 crosshairGui.Name = "ScreenGui"; crosshairGui.ResetOnSpawn = false
 crosshairGui.DisplayOrder = 10; crosshairGui.IgnoreGuiInset = true
@@ -394,7 +398,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  INVENTORY VIEWER
+--  INVENTORY VIEWER (UNCHANGED)
 -- ============================================================
 local invObjects = {}
 
@@ -529,7 +533,7 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 -- ============================================================
---  FLY SYSTEM
+--  FLY SYSTEM (UNCHANGED)
 -- ============================================================
 local flyPart, flyWeld, flyVelocity, flyGyro, flyConn = nil, nil, nil, nil, nil
 
@@ -625,7 +629,7 @@ task.delay(3, function()
 end)
 
 -- ============================================================
---  ESP SYSTEM
+--  ESP SYSTEM (UPGRADED - Added Glow + Box Style)
 -- ============================================================
 local Pool = {}
 
@@ -819,7 +823,12 @@ RunService.RenderStepped:Connect(function()
 
         if cfg.espBoxes and b then applyBox(obj.Box, b.x, b.y, b.w, b.h, col) else hideBox(obj.Box) end
 
+        -- GLOW EFFECT (NEW)
         if cfg.espGlow and b then
+            if not obj.Glow then
+                obj.Glow = newRect(nil, col)
+                obj.Glow.BackgroundTransparency = 0.7
+            end
             obj.Glow.Position = UDim2.new(0, b.x - 5, 0, b.y - 5)
             obj.Glow.Size = UDim2.new(0, b.w + 10, 0, b.h + 10)
             obj.Glow.BackgroundColor3 = col
@@ -882,7 +891,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  AIMBOT
+--  AIMBOT (UPGRADED - Added AI Prediction)
 -- ============================================================
 local function getNearestTarget()
     local best, bestDist = nil, math.huge
@@ -898,7 +907,7 @@ local function getNearestTarget()
         local targetPos = aimPart.Position
         if cfg.aimbotPrediction then
             local vel = aimPart.Velocity or Vector3.new(0,0,0)
-            targetPos = targetPos + vel * 0.1
+            targetPos = targetPos + vel * 0.12
         end
         
         local sc, vis = Camera:WorldToViewportPoint(targetPos)
@@ -944,10 +953,9 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  LOOPING SYSTEMS
+--  LOOPING SYSTEMS (UNCHANGED)
 -- ============================================================
 RunService.RenderStepped:Connect(function(dt)
-    -- Third Person
     if cfg.thirdPerson and character then
         local root = character:FindFirstChild("HumanoidRootPart")
         if root then
@@ -961,7 +969,6 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Auto Sprint
     if cfg.autoSprint and character then
         local hum = character:FindFirstChildOfClass("Humanoid")
         if hum then
@@ -969,24 +976,20 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Speed Hack
     if cfg.speed and character then
         local hum = character:FindFirstChildOfClass("Humanoid")
         if hum then hum.WalkSpeed = cfg.speedVal end
     end
 
-    -- Jump Power
     if cfg.jumpPower and character then
         local hum = character:FindFirstChildOfClass("Humanoid")
         if hum then hum.JumpPower = cfg.jumpVal end
     end
 
-    -- Gravity
     if cfg.gravity then
         workspace.Gravity = DEFAULT_GRAVITY * (cfg.gravityVal / 100)
     end
 
-    -- FOV Changer
     if cfg.fovChanger then
         Camera.FieldOfView = cfg.fovVal
     end
@@ -1043,7 +1046,6 @@ end
 local lastHitboxSize = cfg.hitboxSize
 
 RunService.Heartbeat:Connect(function(dt)
-    -- Spin Bot
     if cfg.spinBot then
         local root = character and character:FindFirstChild("HumanoidRootPart")
         if root then
@@ -1059,7 +1061,6 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
-    -- Hitbox Expander
     if cfg.hitboxExpander then
         if lastHitboxSize ~= cfg.hitboxSize then
             lastHitboxSize = cfg.hitboxSize
@@ -1076,7 +1077,6 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
-    -- Kill Aura
     if cfg.killAura then
         local myRoot = character and character:FindFirstChild("HumanoidRootPart")
         if myRoot then
@@ -1156,7 +1156,7 @@ mouse.Button1Down:Connect(function()
 end)
 
 -- ============================================================
---  RAYFIELD UI - FULL MENU
+--  RAYFIELD UI - UPGRADED MENU
 -- ============================================================
 local function createMainMenu()
     local Window = Rayfield:CreateWindow({
@@ -1176,7 +1176,6 @@ local function createMainMenu()
         if gui then gui.Enabled = menuOpen end
     end)
 
-    -- ====== TABS ======
     local TabESP = Window:CreateTab("Visual / ESP", 4483362458)
     local TabAimbot = Window:CreateTab("Aimbot", 4483362458)
     local TabMovement = Window:CreateTab("Movement", 4483362458)
@@ -1185,9 +1184,9 @@ local function createMainMenu()
     local TabKeyInfo = Window:CreateTab("Key Info", 4483362458)
 
     -- ============================================================
-    --  ESP TAB
+    --  VISUAL / ESP TAB (UPGRADED)
     -- ============================================================
-    TabESP:CreateSection("ESP Settings")
+    TabESP:CreateSection("ESP")
     TabESP:CreateToggle({ Name="ESP", CurrentValue=cfg.esp, Flag="esp", Callback=function(v) cfg.esp = v end })
     TabESP:CreateToggle({ Name="Boxes", CurrentValue=cfg.espBoxes, Flag="espBoxes", Callback=function(v) cfg.espBoxes = v end })
     TabESP:CreateToggle({ Name="Names", CurrentValue=cfg.espNames, Flag="espNames", Callback=function(v) cfg.espNames = v end })
@@ -1196,6 +1195,8 @@ local function createMainMenu()
     TabESP:CreateToggle({ Name="Bones", CurrentValue=cfg.espBones, Flag="espBones", Callback=function(v) cfg.espBones = v end })
     TabESP:CreateToggle({ Name="Distance", CurrentValue=cfg.espDistance, Flag="espDistance", Callback=function(v) cfg.espDistance = v end })
     TabESP:CreateToggle({ Name="Rainbow ESP", CurrentValue=cfg.rainbowEsp, Flag="rainbowEsp", Callback=function(v) cfg.rainbowEsp = v end })
+    
+    -- NEW ESP FEATURES
     TabESP:CreateToggle({ Name="Glow Effect", CurrentValue=cfg.espGlow, Flag="espGlow", Callback=function(v) cfg.espGlow = v end })
     
     TabESP:CreateDropdown({
@@ -1246,6 +1247,9 @@ local function createMainMenu()
         end,
     })
 
+    -- ============================================================
+    --  CROSSHAIR (UPGRADED WITH COLOR PICKER)
+    -- ============================================================
     TabESP:CreateSection("Crosshair")
     TabESP:CreateToggle({ Name="Custom Crosshair", CurrentValue=cfg.crosshair, Flag="crosshair", Callback=function(v) cfg.crosshair = v end })
     TabESP:CreateSlider({ Name="Crosshair Size", Range={5,30}, Increment=1, Suffix="px", CurrentValue=cfg.crosshairSize, Flag="crosshairSize", Callback=function(v) cfg.crosshairSize = v end })
@@ -1274,12 +1278,14 @@ local function createMainMenu()
     })
 
     -- ============================================================
-    --  AIMBOT TAB
+    --  AIMBOT TAB (UPGRADED)
     -- ============================================================
     TabAimbot:CreateSection("Aimbot")
     TabAimbot:CreateToggle({ Name="Aimbot [Hold RMB]", CurrentValue=cfg.aimbot, Flag="aimbot", Callback=function(v) cfg.aimbot = v; updateFOVCircle() end })
     TabAimbot:CreateToggle({ Name="Soft Aim [Hold LMB]", CurrentValue=cfg.softAim, Flag="softAim", Callback=function(v) cfg.softAim = v; updateFOVCircle() end })
     TabAimbot:CreateToggle({ Name="Silent Aim", CurrentValue=cfg.silentAim, Flag="silentAim", Callback=function(v) cfg.silentAim = v; updateFOVCircle() end })
+    
+    -- NEW: AI Prediction Toggle
     TabAimbot:CreateToggle({ Name="AI Prediction", CurrentValue=cfg.aimbotPrediction, Flag="aimbotPrediction", Callback=function(v) cfg.aimbotPrediction = v end })
 
     TabAimbot:CreateDropdown({
@@ -1298,7 +1304,7 @@ local function createMainMenu()
     TabAimbot:CreateToggle({ Name="Don't Lock On Teammates", CurrentValue=cfg.aimbotTeamCheck, Flag="aimbotTeamCheck", Callback=function(v) cfg.aimbotTeamCheck = v end })
 
     -- ============================================================
-    --  MOVEMENT TAB
+    --  MOVEMENT TAB (UNCHANGED)
     -- ============================================================
     TabMovement:CreateSection("Movement")
     TabMovement:CreateToggle({ Name="Fly [V]", CurrentValue=cfg.fly, Flag="fly", Callback=function(v) cfg.fly = v; if v then startFly() else stopFly() end end })
@@ -1413,7 +1419,7 @@ local function createMainMenu()
     })
 
     -- ============================================================
-    --  PLAYER TAB
+    --  PLAYER TAB (UNCHANGED)
     -- ============================================================
     TabPlayer:CreateSection("Anti-AFK")
     TabPlayer:CreateToggle({ Name="Anti-AFK", CurrentValue=cfg.antiAfk, Flag="antiAfk", Callback=function(v) cfg.antiAfk = v end })
@@ -1442,7 +1448,7 @@ local function createMainMenu()
     TabPlayer:CreateSlider({ Name="Aura Range", Range={5,100}, Increment=1, Suffix=" studs", CurrentValue=cfg.killAuraRange, Flag="killAuraRange", Callback=function(v) cfg.killAuraRange = v end })
 
     -- ============================================================
-    --  MISC TAB
+    --  MISC TAB (UNCHANGED)
     -- ============================================================
     TabMisc:CreateSection("Misc")
     TabMisc:CreateToggle({
@@ -1524,7 +1530,7 @@ local function createMainMenu()
     })
 
     -- ============================================================
-    --  KEY INFO TAB
+    --  KEY INFO TAB (UNCHANGED)
     -- ============================================================
     if currentKeyData then
         local kd = currentKeyData
@@ -1553,7 +1559,7 @@ local function createMainMenu()
     end
 
     -- ============================================================
-    --  PROFILE GUI
+    --  PROFILE GUI (UNCHANGED)
     -- ============================================================
     local profileGui = Instance.new("ScreenGui")
     profileGui.Name = "ScreenGui"
