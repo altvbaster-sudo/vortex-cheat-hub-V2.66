@@ -185,6 +185,8 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
 local sessionStart = tick()
+local DEFAULT_BRIGHTNESS = Lighting.Brightness
+local DEFAULT_CLOCKTIME = Lighting.ClockTime
 
 player.CharacterAdded:Connect(function(c)
     character = c
@@ -273,7 +275,8 @@ local function setPanic(on)
         local hum = character and character:FindFirstChildOfClass("Humanoid")
         if hum then hum.WalkSpeed = 16; hum.JumpPower = 50 end
         workspace.Gravity = DEFAULT_GRAVITY
-        Lighting.Brightness = 1
+        Lighting.Brightness = DEFAULT_BRIGHTNESS
+        Lighting.ClockTime = DEFAULT_CLOCKTIME
         Camera.FieldOfView = 70
     else
         for _, k in ipairs(TOGGLEABLE_KEYS) do
@@ -363,15 +366,15 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  FLY SYSTEM
+--  FLY SYSTEM - FIXED
 -- ============================================================
-local flyPart, flyWeld, flyVelocity, flyConn = nil, nil, nil, nil
+local flyPart, flyWeld, flyVelocity, flyConn, flyGyro = nil, nil, nil, nil, nil
 
 local function stopFly()
     cfg.fly = false
     if flyConn then flyConn:Disconnect(); flyConn = nil end
     if flyPart then flyPart:Destroy(); flyPart = nil end
-    flyWeld = nil; flyVelocity = nil
+    flyWeld = nil; flyVelocity = nil; flyGyro = nil
     local hum = character:FindFirstChildOfClass("Humanoid")
     if hum then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
 end
@@ -396,6 +399,12 @@ local function startFly()
     flyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
     flyVelocity.P = 1e4
     
+    flyGyro = Instance.new("BodyGyro", flyPart)
+    flyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+    flyGyro.P = 1e4
+    flyGyro.D = 100
+    flyGyro.CFrame = flyPart.CFrame
+    
     flyWeld = Instance.new("WeldConstraint", flyPart)
     flyWeld.Part0 = flyPart
     flyWeld.Part1 = root
@@ -404,20 +413,33 @@ local function startFly()
     
     flyConn = RunService.RenderStepped:Connect(function()
         if not cfg.fly then stopFly(); return end
+        
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not root then stopFly(); return end
+        
         local cam = Camera.CFrame
         local dir = Vector3.zero
+        
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.RightVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.RightVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
+        
         flyVelocity.Velocity = dir.Magnitude > 0 and dir.Unit * cfg.flySpeed or Vector3.zero
+        
+        -- Sync gyro with spin bot
+        if cfg.spinBot then
+            flyGyro.CFrame = root.CFrame
+        else
+            flyGyro.CFrame = CFrame.new(Vector3.zero, Vector3.new(cam.LookVector.X, 0, cam.LookVector.Z))
+        end
     end)
 end
 
 -- ============================================================
---  ESP SYSTEM - CLEAN VERSION
+--  ESP SYSTEM - COMPLETELY REWRITTEN
 -- ============================================================
 local espGui = Instance.new("ScreenGui")
 espGui.Name = "ESP"
@@ -437,9 +459,11 @@ local function createESPObject()
         NameLabel = Instance.new("TextLabel", espGui),
         Tracer = Instance.new("Frame", espGui),
         Glow = Instance.new("Frame", espGui),
-        Bones = {}
+        Bones = {},
+        DistanceLabel = Instance.new("TextLabel", espGui)
     }
     
+    -- Box corners
     for _, f in pairs({obj.BoxTL, obj.BoxTR, obj.BoxBL, obj.BoxBR}) do
         f.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         f.BackgroundTransparency = 0
@@ -448,7 +472,8 @@ local function createESPObject()
         f.Visible = false
     end
     
-    obj.HealthBG.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    -- Health
+    obj.HealthBG.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     obj.HealthBG.BorderSizePixel = 0
     obj.HealthBG.Visible = false
     
@@ -456,6 +481,7 @@ local function createESPObject()
     obj.HealthBar.BorderSizePixel = 0
     obj.HealthBar.Visible = false
     
+    -- Name
     obj.NameLabel.BackgroundTransparency = 1
     obj.NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     obj.NameLabel.TextStrokeTransparency = 0
@@ -466,24 +492,38 @@ local function createESPObject()
     obj.NameLabel.TextXAlignment = Enum.TextXAlignment.Center
     obj.NameLabel.Visible = false
     
+    -- Distance
+    obj.DistanceLabel.BackgroundTransparency = 1
+    obj.DistanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    obj.DistanceLabel.TextStrokeTransparency = 0
+    obj.DistanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    obj.DistanceLabel.TextSize = 10
+    obj.DistanceLabel.Font = Enum.Font.Gotham
+    obj.DistanceLabel.Size = UDim2.new(0, 100, 0, 14)
+    obj.DistanceLabel.TextXAlignment = Enum.TextXAlignment.Center
+    obj.DistanceLabel.Visible = false
+    
+    -- Tracer
     obj.Tracer.AnchorPoint = Vector2.new(0.5, 0.5)
     obj.Tracer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    obj.Tracer.BackgroundTransparency = 0
+    obj.Tracer.BackgroundTransparency = 0.5
     obj.Tracer.BorderSizePixel = 0
     obj.Tracer.Size = UDim2.new(0, 0, 0, 1)
     obj.Tracer.Visible = false
     
+    -- Glow
     obj.Glow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    obj.Glow.BackgroundTransparency = 0.7
+    obj.Glow.BackgroundTransparency = 0.8
     obj.Glow.BorderSizePixel = 0
     obj.Glow.Size = UDim2.new(0, 0, 0, 0)
     obj.Glow.Visible = false
     
+    -- Bones
     for i = 1, 15 do
         local bone = Instance.new("Frame", espGui)
         bone.AnchorPoint = Vector2.new(0.5, 0.5)
         bone.BackgroundColor3 = Color3.fromRGB(200, 200, 220)
-        bone.BackgroundTransparency = 0
+        bone.BackgroundTransparency = 0.3
         bone.BorderSizePixel = 0
         bone.Size = UDim2.new(0, 0, 0, 1)
         bone.Visible = false
@@ -531,7 +571,7 @@ local function getBox(char)
     end
     
     if valid then
-        return {x = minX, y = minY, w = maxX - minX, h = maxY - minY}
+        return {x = minX, y = minY, w = maxX - minX, h = maxY - minY, cx = (minX + maxX) / 2, cy = (minY + maxY) / 2}
     end
     return nil
 end
@@ -543,8 +583,8 @@ RunService.RenderStepped:Connect(function()
                 obj.BoxTL.Visible = false; obj.BoxTR.Visible = false
                 obj.BoxBL.Visible = false; obj.BoxBR.Visible = false
                 obj.HealthBG.Visible = false; obj.HealthBar.Visible = false
-                obj.NameLabel.Visible = false; obj.Tracer.Visible = false
-                obj.Glow.Visible = false
+                obj.NameLabel.Visible = false; obj.DistanceLabel.Visible = false
+                obj.Tracer.Visible = false; obj.Glow.Visible = false
                 for _, b in ipairs(obj.Bones) do b.Visible = false end
             end
         end
@@ -565,8 +605,8 @@ RunService.RenderStepped:Connect(function()
             obj.BoxTL.Visible = false; obj.BoxTR.Visible = false
             obj.BoxBL.Visible = false; obj.BoxBR.Visible = false
             obj.HealthBG.Visible = false; obj.HealthBar.Visible = false
-            obj.NameLabel.Visible = false; obj.Tracer.Visible = false
-            obj.Glow.Visible = false
+            obj.NameLabel.Visible = false; obj.DistanceLabel.Visible = false
+            obj.Tracer.Visible = false; obj.Glow.Visible = false
             for _, b in ipairs(obj.Bones) do b.Visible = false end
             continue
         end
@@ -576,8 +616,8 @@ RunService.RenderStepped:Connect(function()
             obj.BoxTL.Visible = false; obj.BoxTR.Visible = false
             obj.BoxBL.Visible = false; obj.BoxBR.Visible = false
             obj.HealthBG.Visible = false; obj.HealthBar.Visible = false
-            obj.NameLabel.Visible = false; obj.Tracer.Visible = false
-            obj.Glow.Visible = false
+            obj.NameLabel.Visible = false; obj.DistanceLabel.Visible = false
+            obj.Tracer.Visible = false; obj.Glow.Visible = false
             for _, b in ipairs(obj.Bones) do b.Visible = false end
             continue
         end
@@ -587,8 +627,8 @@ RunService.RenderStepped:Connect(function()
             obj.BoxTL.Visible = false; obj.BoxTR.Visible = false
             obj.BoxBL.Visible = false; obj.BoxBR.Visible = false
             obj.HealthBG.Visible = false; obj.HealthBar.Visible = false
-            obj.NameLabel.Visible = false; obj.Tracer.Visible = false
-            obj.Glow.Visible = false
+            obj.NameLabel.Visible = false; obj.DistanceLabel.Visible = false
+            obj.Tracer.Visible = false; obj.Glow.Visible = false
             for _, b in ipairs(obj.Bones) do b.Visible = false end
             continue
         end
@@ -609,13 +649,14 @@ RunService.RenderStepped:Connect(function()
         if not box then continue end
         
         local x, y, w, h = box.x, box.y, box.w, box.h
+        local cx, cy = box.cx, box.cy
         local t = 2
         local cs = math.min(10, w / 4)
         
         -- GLOW
         if cfg.espGlow then
-            obj.Glow.Position = UDim2.new(0, x - 8, 0, y - 8)
-            obj.Glow.Size = UDim2.new(0, w + 16, 0, h + 16)
+            obj.Glow.Position = UDim2.new(0, x - 6, 0, y - 6)
+            obj.Glow.Size = UDim2.new(0, w + 12, 0, h + 12)
             obj.Glow.BackgroundColor3 = color
             obj.Glow.Visible = true
         else
@@ -674,9 +715,9 @@ RunService.RenderStepped:Connect(function()
         if cfg.espHealth then
             local pct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
             local healthColor = Color3.fromHSV(0.3 * pct, 1, 0.6)
-            local bw, bh = 40, 3
-            local hx = x + (w / 2) - (bw / 2)
-            local hy = y - 10
+            local bw, bh = 50, 4
+            local hx = cx - (bw / 2)
+            local hy = y - 12
             
             obj.HealthBG.Position = UDim2.new(0, hx, 0, hy)
             obj.HealthBG.Size = UDim2.new(0, bw, 0, bh)
@@ -693,22 +734,28 @@ RunService.RenderStepped:Connect(function()
         
         -- NAME
         if cfg.espNames then
-            local text = plr.Name
-            if cfg.espDistance then
-                text = text .. " | " .. math.floor(dist) .. "m"
-            end
-            obj.NameLabel.Text = text
+            obj.NameLabel.Text = plr.Name
             obj.NameLabel.TextColor3 = color
-            obj.NameLabel.Position = UDim2.new(0, x + (w/2) - 150, 0, y - 30)
+            obj.NameLabel.Position = UDim2.new(0, cx - 150, 0, y - 28)
             obj.NameLabel.Visible = true
         else
             obj.NameLabel.Visible = false
         end
         
+        -- DISTANCE
+        if cfg.espDistance then
+            obj.DistanceLabel.Text = math.floor(dist) .. "m"
+            obj.DistanceLabel.TextColor3 = color
+            obj.DistanceLabel.Position = UDim2.new(0, cx - 50, 0, y + h + 2)
+            obj.DistanceLabel.Visible = true
+        else
+            obj.DistanceLabel.Visible = false
+        end
+        
         -- TRACER
         if cfg.espTracers then
             local x1, y1 = center.X, center.Y
-            local x2, y2 = x + (w/2), y + h
+            local x2, y2 = cx, y + h
             local dx, dy = x2 - x1, y2 - y1
             local len = math.sqrt(dx * dx + dy * dy)
             
@@ -752,7 +799,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  AIMBOT
+--  AIMBOT - FIXED SILENT AIM
 -- ============================================================
 local function getTarget()
     local best, bestDist = nil, math.huge
@@ -779,7 +826,7 @@ local function getTarget()
         
         local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
         if dist < cfg.aimbotFOV and dist < bestDist then
-            best = {pos = targetPos}
+            best = {pos = targetPos, part = aimPart}
             bestDist = dist
         end
     end
@@ -787,42 +834,68 @@ local function getTarget()
     return best
 end
 
+-- Silent aim state
+local silentAimActive = false
+
 RunService.RenderStepped:Connect(function()
     updateFOVCircle()
-    local target = getTarget()
-    if not target then return end
     
-    if cfg.aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local smooth = cfg.aimbotSmooth / 10
-        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.pos), smooth)
-    end
-    
-    if cfg.softAim and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        local smooth = math.clamp(cfg.softAimStr / 50, 0.02, 0.3)
-        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.pos), smooth)
-    end
-    
+    -- Silent Aim
     if cfg.silentAim then
-        local savedCF = Camera.CFrame
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.pos)
-        task.defer(function()
-            if cfg.silentAim then Camera.CFrame = savedCF end
-        end)
+        local target = getTarget()
+        if target then
+            silentAimActive = true
+            local savedCF = Camera.CFrame
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.pos)
+            -- Reset after render step
+            task.spawn(function()
+                wait(0.016)
+                if cfg.silentAim and Camera then
+                    Camera.CFrame = savedCF
+                end
+                silentAimActive = false
+            end)
+        end
+    end
+    
+    -- Normal Aimbot
+    if cfg.aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = getTarget()
+        if target then
+            local smooth = cfg.aimbotSmooth / 10
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.pos), smooth)
+        end
+    end
+    
+    -- Soft Aim
+    if cfg.softAim and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+        local target = getTarget()
+        if target then
+            local smooth = math.clamp(cfg.softAimStr / 50, 0.02, 0.3)
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.pos), smooth)
+        end
     end
 end)
 
 -- ============================================================
---  MOVEMENT SYSTEMS
+--  MOVEMENT SYSTEMS - FIXED LIGHTING
 -- ============================================================
 RunService.RenderStepped:Connect(function()
+    -- Third Person
     if cfg.thirdPerson and character then
         local root = character:FindFirstChild("HumanoidRootPart")
         if root then
             Camera.CameraSubject = root
             Camera.CameraType = Enum.CameraType.Custom
         end
+    elseif not cfg.thirdPerson then
+        if Camera.CameraType == Enum.CameraType.Custom then
+            Camera.CameraSubject = nil
+            Camera.CameraType = Enum.CameraType.Custom
+        end
     end
     
+    -- Auto Sprint
     if cfg.autoSprint and character then
         local hum = character:FindFirstChildOfClass("Humanoid")
         if hum then
@@ -830,29 +903,35 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
+    -- Speed
     if cfg.speed and character then
         local hum = character:FindFirstChildOfClass("Humanoid")
         if hum then hum.WalkSpeed = cfg.speedVal end
     end
     
+    -- Jump Power
     if cfg.jumpPower and character then
         local hum = character:FindFirstChildOfClass("Humanoid")
         if hum then hum.JumpPower = cfg.jumpVal end
     end
     
+    -- Gravity
     if cfg.gravity then
         workspace.Gravity = DEFAULT_GRAVITY * (cfg.gravityVal / 100)
     end
     
+    -- FOV
     if cfg.fovChanger then
         Camera.FieldOfView = cfg.fovVal
     end
     
+    -- Fullbright - FIXED (doesn't mess with lighting when off)
     if cfg.fullbright then
         Lighting.Brightness = 10
         Lighting.ClockTime = 14
     else
-        Lighting.Brightness = 1
+        Lighting.Brightness = DEFAULT_BRIGHTNESS
+        Lighting.ClockTime = DEFAULT_CLOCKTIME
     end
 end)
 
@@ -959,13 +1038,23 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================
---  SPIN BOT
+--  SPIN BOT - FIXED (works with shiftlock)
 -- ============================================================
 RunService.Heartbeat:Connect(function(dt)
     if cfg.spinBot then
         local root = character:FindFirstChild("HumanoidRootPart")
         if root then
+            -- Rotate the root part continuously
             root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(cfg.spinSpeed * dt * 60), 0)
+            -- Disable auto-rotate
+            if humanoid then
+                humanoid.AutoRotate = false
+            end
+        end
+    else
+        -- Re-enable auto-rotate when spin bot is off
+        if humanoid and not humanoid.AutoRotate then
+            humanoid.AutoRotate = true
         end
     end
 end)
