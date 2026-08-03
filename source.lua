@@ -1,7 +1,14 @@
--- Vortex Hub v2.66 - COMPLETE MENU EDITION
+-- Vortex Hub v2.66 - Rayfield UI Edition
 local VERSION = "2.66"
 
--- SERVICES
+-- ============================================================
+--  LOAD RAYFIELD
+-- ============================================================
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+-- ============================================================
+--  SERVICES
+-- ============================================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -14,18 +21,36 @@ local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
 local DEFAULT_GRAVITY = workspace.Gravity
 
--- CONFIG
+-- ============================================================
+--  CONFIGURATION
+-- ============================================================
 local cfg = {
     aimbot = {enabled = false, teamCheck = true, fov = 75, smoothness = 5, part = "HumanoidRootPart"},
     softAim = {enabled = false, strength = 3},
     silentAim = {enabled = false},
-    esp = {enabled = true, boxes = true, names = true, health = true, tracers = false, bones = false, distance = true, rainbow = false, maxDistance = 3000, maxPlayers = 30, useTeamColor = true},
-    movement = {fly = false, flySpeed = 50, speed = false, speedVal = 24, jumpPower = false, jumpVal = 70, infiniteJump = false, noClip = false, noFallDamage = false, autoSprint = false, thirdPerson = false, gravity = false, gravityVal = 100, antiAfk = false},
-    combat = {spinBot = false, spinSpeed = 5, killAura = false, killAuraRange = 15, hitboxExpander = false, hitboxSize = 6},
-    visuals = {fovChanger = false, fovVal = 70, fullbright = false}
+    esp = {
+        enabled = true, boxes = true, names = true, health = true, tracers = false,
+        bones = false, distance = true, rainbow = false, maxDistance = 3000,
+        maxPlayers = 30, useTeamColor = true
+    },
+    movement = {
+        fly = false, flySpeed = 50, speed = false, speedVal = 24, jumpPower = false,
+        jumpVal = 70, infiniteJump = false, noClip = false, noFallDamage = false,
+        autoSprint = false, thirdPerson = false, gravity = false, gravityVal = 100,
+        antiAfk = false
+    },
+    combat = {
+        spinBot = false, spinSpeed = 5, killAura = false, killAuraRange = 15,
+        hitboxExpander = false, hitboxSize = 6
+    },
+    visuals = {
+        fovChanger = false, fovVal = 70, fullbright = false
+    }
 }
 
--- NEURAL NETWORK
+-- ============================================================
+--  NEURAL NETWORK
+-- ============================================================
 local nn = {
     weights = {}, biases = {},
     init = function(self)
@@ -51,7 +76,9 @@ local nn = {
 }
 nn:init()
 
--- AIMBOT
+-- ============================================================
+--  AIMBOT ENGINE
+-- ============================================================
 local perf = {shots = 0, hits = 0}
 local function getTarget()
     local best, bestScore = nil, -math.huge
@@ -77,6 +104,7 @@ local function getTarget()
 end
 
 local function updateAimbot()
+    -- Normal Aimbot
     if cfg.aimbot.enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local target = getTarget()
         if target then
@@ -87,6 +115,7 @@ local function updateAimbot()
             if target.angle < 5 then perf.hits = perf.hits + 1 end
         end
     end
+    -- Soft Aim
     if cfg.softAim.enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
         local target = getTarget()
         if target then
@@ -95,6 +124,7 @@ local function updateAimbot()
             Camera.CFrame = Camera.CFrame:Lerp(newCF, smooth)
         end
     end
+    -- Silent Aim
     if cfg.silentAim.enabled then
         local target = getTarget()
         if target then
@@ -105,7 +135,9 @@ local function updateAimbot()
     end
 end
 
--- FLY SYSTEM
+-- ============================================================
+--  FLY SYSTEM
+-- ============================================================
 local flyPart, flyVel, flyWeld, flyConn = nil, nil, nil, nil
 local function stopFly()
     cfg.movement.fly = false
@@ -148,7 +180,9 @@ local function startFly()
     end)
 end
 
--- ESP
+-- ============================================================
+--  ESP SYSTEM
+-- ============================================================
 local espGui = Instance.new("ScreenGui")
 espGui.Name = "ESP"
 espGui.ResetOnSpawn = false
@@ -306,7 +340,9 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- MOVEMENT SYSTEMS
+-- ============================================================
+--  MOVEMENT SYSTEMS
+-- ============================================================
 RunService.RenderStepped:Connect(function()
     if cfg.combat.spinBot then
         local root = character:FindFirstChild("HumanoidRootPart")
@@ -354,7 +390,9 @@ player.Idled:Connect(function()
     end
 end)
 
--- HITBOX EXPANDER
+-- ============================================================
+--  HITBOX EXPANDER
+-- ============================================================
 local hbParts = {}
 local function removeHB(p) if hbParts[p] then hbParts[p]:Destroy(); hbParts[p] = nil end end
 local function buildHB(p)
@@ -386,7 +424,9 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- KILL AURA
+-- ============================================================
+--  KILL AURA
+-- ============================================================
 RunService.Heartbeat:Connect(function()
     if cfg.combat.killAura then
         local myRoot = character:FindFirstChild("HumanoidRootPart")
@@ -401,7 +441,9 @@ RunService.Heartbeat:Connect(function()
                         local tool = character:FindFirstChildOfClass("Tool")
                         if tool then
                             for _, obj in ipairs(tool:GetDescendants()) do
-                                if obj:IsA("RemoteEvent") then pcall(function() obj:FireServer() end) end
+                                if obj:IsA("RemoteEvent") then
+                                    pcall(function() obj:FireServer() end)
+                                end
                             end
                         end
                     end
@@ -412,339 +454,333 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================
---  COMPLETE MENU
+--  RAYFIELD UI MENU
 -- ============================================================
-local menuVisible = false
-local menuGui = nil
-local currentTab = "Aimbot"
+local Window = Rayfield:CreateWindow({
+    Name = "Vortex Hub v" .. VERSION,
+    LoadingTitle = "Vortex Hub",
+    LoadingSubtitle = "v" .. VERSION,
+    Theme = "Default",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = true,
+})
 
-local function createMenu()
-    if menuGui then
-        menuGui:Destroy()
-        menuGui = nil
-        menuVisible = false
-        return
-    end
-    
-    menuGui = Instance.new("ScreenGui")
-    menuGui.Name = "VortexHub"
-    menuGui.Parent = player.PlayerGui
-    
-    local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 450, 0, 520)
-    main.Position = UDim2.new(0.5, -225, 0.5, -260)
-    main.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-    main.BorderSizePixel = 0
-    main.Parent = menuGui
-    local mainCorner = Instance.new("UICorner")
-    mainCorner.CornerRadius = UDim.new(0, 12)
-    mainCorner.Parent = main
-    
-    -- Title Bar
-    local titleBar = Instance.new("Frame")
-    titleBar.Size = UDim2.new(1, 0, 0, 45)
-    titleBar.BackgroundColor3 = Color3.fromRGB(25, 20, 45)
-    titleBar.BorderSizePixel = 0
-    titleBar.Parent = main
-    local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, 12)
-    titleCorner.Parent = titleBar
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -60, 1, 0)
-    title.Position = UDim2.new(0, 15, 0, 0)
-    title.Text = "VORTEX HUB v" .. VERSION
-    title.TextColor3 = Color3.fromRGB(150, 120, 255)
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = titleBar
-    
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -40, 0, 8)
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(40, 20, 20)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 14
-    closeBtn.Parent = titleBar
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 6)
-    closeCorner.Parent = closeBtn
-    closeBtn.MouseButton1Click:Connect(function() createMenu() end)
-    
-    -- Tabs
-    local tabNames = {"Aimbot", "ESP", "Movement", "Combat", "Visuals"}
-    local tabButtons = {}
-    
-    for i, name in ipairs(tabNames) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 86, 0, 32)
-        btn.Position = UDim2.new(0, 8 + (i-1) * 88, 0, 50)
-        btn.Text = name
-        btn.TextColor3 = name == currentTab and Color3.fromRGB(150, 120, 255) or Color3.fromRGB(180, 180, 200)
-        btn.BackgroundColor3 = name == currentTab and Color3.fromRGB(30, 25, 50) or Color3.fromRGB(25, 25, 40)
-        btn.BorderSizePixel = 0
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 11
-        btn.Parent = main
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 4)
-        btnCorner.Parent = btn
-        
-        btn.MouseButton1Click:Connect(function()
-            currentTab = name
-            for _, b in ipairs(tabButtons) do
-                b.TextColor3 = b.Text == currentTab and Color3.fromRGB(150, 120, 255) or Color3.fromRGB(180, 180, 200)
-                b.BackgroundColor3 = b.Text == currentTab and Color3.fromRGB(30, 25, 50) or Color3.fromRGB(25, 25, 40)
-            end
-            createMenu()
-        end)
-        tabButtons[i] = btn
-    end
-    
-    -- Content
-    local content = Instance.new("Frame")
-    content.Size = UDim2.new(1, -20, 0, 400)
-    content.Position = UDim2.new(0, 10, 0, 88)
-    content.BackgroundColor3 = Color3.fromRGB(20, 20, 32)
-    content.BorderSizePixel = 0
-    content.Parent = main
-    local contentCorner = Instance.new("UICorner")
-    contentCorner.CornerRadius = UDim.new(0, 8)
-    contentCorner.Parent = content
-    
-    -- Helper: Toggle
-    local function makeToggle(parent, text, y, getter, setter)
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(0, 200, 0, 30)
-        frame.Position = UDim2.new(0, 10, 0, y)
-        frame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-        frame.BorderSizePixel = 0
-        frame.Parent = parent
-        local fCorner = Instance.new("UICorner")
-        fCorner.CornerRadius = UDim.new(0, 4)
-        fCorner.Parent = frame
-        
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0, 140, 1, 0)
-        label.Position = UDim2.new(0, 10, 0, 0)
-        label.Text = text
-        label.TextColor3 = Color3.fromRGB(220, 220, 220)
-        label.BackgroundTransparency = 1
-        label.Font = Enum.Font.Gotham
-        label.TextSize = 11
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Parent = frame
-        
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 40, 0, 22)
-        btn.Position = UDim2.new(1, -45, 0.5, -11)
-        btn.Text = getter() and "ON" or "OFF"
-        btn.TextColor3 = getter() and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
-        btn.BackgroundColor3 = getter() and Color3.fromRGB(30, 70, 40) or Color3.fromRGB(70, 30, 30)
-        btn.BorderSizePixel = 0
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 10
-        btn.Parent = frame
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 3)
-        btnCorner.Parent = btn
-        
-        btn.MouseButton1Click:Connect(function()
-            setter(not getter())
-            btn.Text = getter() and "ON" or "OFF"
-            btn.TextColor3 = getter() and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
-            btn.BackgroundColor3 = getter() and Color3.fromRGB(30, 70, 40) or Color3.fromRGB(70, 30, 30)
-        end)
-        return frame
-    end
-    
-    -- Helper: Slider
-    local function makeSlider(parent, text, y, min, max, getter, setter)
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(0, 200, 0, 35)
-        frame.Position = UDim2.new(0, 10, 0, y)
-        frame.BackgroundTransparency = 1
-        frame.Parent = parent
-        
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, 0, 0, 16)
-        label.Position = UDim2.new(0, 0, 0, 0)
-        label.Text = text .. ": " .. getter()
-        label.TextColor3 = Color3.fromRGB(200, 200, 200)
-        label.BackgroundTransparency = 1
-        label.Font = Enum.Font.Gotham
-        label.TextSize = 11
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Parent = frame
-        
-        local track = Instance.new("Frame")
-        track.Size = UDim2.new(1, 0, 0, 4)
-        track.Position = UDim2.new(0, 0, 0, 20)
-        track.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-        track.BorderSizePixel = 0
-        track.Parent = frame
-        local trackCorner = Instance.new("UICorner")
-        trackCorner.CornerRadius = UDim.new(0, 2)
-        trackCorner.Parent = track
-        
-        local fill = Instance.new("Frame")
-        fill.Size = UDim2.new((getter() - min) / (max - min), 0, 1, 0)
-        fill.BackgroundColor3 = Color3.fromRGB(150, 120, 255)
-        fill.BorderSizePixel = 0
-        fill.Parent = track
-        local fillCorner = Instance.new("UICorner")
-        fillCorner.CornerRadius = UDim.new(0, 2)
-        fillCorner.Parent = fill
-        
-        local dragging = false
-        local dragBtn = Instance.new("TextButton")
-        dragBtn.Size = UDim2.new(0, 12, 0, 12)
-        dragBtn.Position = UDim2.new((getter() - min) / (max - min), -6, 0.5, -6)
-        dragBtn.Text = ""
-        dragBtn.BackgroundColor3 = Color3.fromRGB(150, 120, 255)
-        dragBtn.BorderSizePixel = 0
-        dragBtn.Parent = track
-        local dragCorner = Instance.new("UICorner")
-        dragCorner.CornerRadius = UDim.new(1, 0)
-        dragCorner.Parent = dragBtn
-        
-        dragBtn.MouseButton1Down:Connect(function() dragging = true end)
-        dragBtn.MouseButton1Up:Connect(function() dragging = false end)
-        dragBtn.MouseLeave:Connect(function() dragging = false end)
-        
-        UserInputService.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-                local mouse = player:GetMouse()
-                local pos = mouse.X - track.AbsolutePosition.X
-                local newVal = math.clamp((pos / track.AbsoluteSize.X) * (max - min) + min, min, max)
-                newVal = math.round(newVal)
-                setter(newVal)
-                label.Text = text .. ": " .. getter()
-                fill.Size = UDim2.new((getter() - min) / (max - min), 0, 1, 0)
-                dragBtn.Position = UDim2.new((getter() - min) / (max - min), -6, 0.5, -6)
-            end
-        end)
-        
-        return frame
-    end
-    
-    -- ====== AIMBOT TAB ======
-    if currentTab == "Aimbot" then
-        local y = 10
-        makeToggle(content, "Aimbot", y, function() return cfg.aimbot.enabled end, function(v) cfg.aimbot.enabled = v end)
-        y = y + 35
-        makeToggle(content, "Team Check", y, function() return cfg.aimbot.teamCheck end, function(v) cfg.aimbot.teamCheck = v end)
-        y = y + 35
-        makeToggle(content, "Soft Aim", y, function() return cfg.softAim.enabled end, function(v) cfg.softAim.enabled = v end)
-        y = y + 35
-        makeToggle(content, "Silent Aim", y, function() return cfg.silentAim.enabled end, function(v) cfg.silentAim.enabled = v end)
-        y = y + 35
-        makeSlider(content, "Smoothness", y, 1, 10, function() return cfg.aimbot.smoothness end, function(v) cfg.aimbot.smoothness = v end)
-        y = y + 40
-        makeSlider(content, "Soft Aim Strength", y, 1, 10, function() return cfg.softAim.strength end, function(v) cfg.softAim.strength = v end)
-        y = y + 40
-        makeSlider(content, "FOV", y, 10, 500, function() return cfg.aimbot.fov end, function(v) cfg.aimbot.fov = v end)
-    end
-    
-    -- ====== ESP TAB ======
-    if currentTab == "ESP" then
-        local y = 10
-        makeToggle(content, "ESP", y, function() return cfg.esp.enabled end, function(v) cfg.esp.enabled = v end)
-        y = y + 35
-        makeToggle(content, "Boxes", y, function() return cfg.esp.boxes end, function(v) cfg.esp.boxes = v end)
-        y = y + 35
-        makeToggle(content, "Names", y, function() return cfg.esp.names end, function(v) cfg.esp.names = v end)
-        y = y + 35
-        makeToggle(content, "Health Bars", y, function() return cfg.esp.health end, function(v) cfg.esp.health = v end)
-        y = y + 35
-        makeToggle(content, "Tracers", y, function() return cfg.esp.tracers end, function(v) cfg.esp.tracers = v end)
-        y = y + 35
-        makeToggle(content, "Bones", y, function() return cfg.esp.bones end, function(v) cfg.esp.bones = v end)
-        y = y + 35
-        makeToggle(content, "Distance", y, function() return cfg.esp.distance end, function(v) cfg.esp.distance = v end)
-        y = y + 35
-        makeToggle(content, "Rainbow", y, function() return cfg.esp.rainbow end, function(v) cfg.esp.rainbow = v end)
-        y = y + 35
-        makeSlider(content, "Max Distance", y, 500, 5000, function() return cfg.esp.maxDistance end, function(v) cfg.esp.maxDistance = v end)
-        y = y + 40
-        makeSlider(content, "Max Players", y, 5, 50, function() return cfg.esp.maxPlayers end, function(v) cfg.esp.maxPlayers = v end)
-    end
-    
-    -- ====== MOVEMENT TAB ======
-    if currentTab == "Movement" then
-        local y = 10
-        makeToggle(content, "Fly", y, function() return cfg.movement.fly end, function(v) cfg.movement.fly = v; if v then startFly() else stopFly() end end)
-        y = y + 35
-        makeToggle(content, "Speed Hack", y, function() return cfg.movement.speed end, function(v) cfg.movement.speed = v end)
-        y = y + 35
-        makeToggle(content, "Jump Power", y, function() return cfg.movement.jumpPower end, function(v) cfg.movement.jumpPower = v end)
-        y = y + 35
-        makeToggle(content, "Infinite Jump", y, function() return cfg.movement.infiniteJump end, function(v) cfg.movement.infiniteJump = v end)
-        y = y + 35
-        makeToggle(content, "No Clip", y, function() return cfg.movement.noClip end, function(v) cfg.movement.noClip = v end)
-        y = y + 35
-        makeToggle(content, "No Fall Damage", y, function() return cfg.movement.noFallDamage end, function(v) cfg.movement.noFallDamage = v end)
-        y = y + 35
-        makeToggle(content, "Auto Sprint", y, function() return cfg.movement.autoSprint end, function(v) cfg.movement.autoSprint = v end)
-        y = y + 35
-        makeToggle(content, "Third Person", y, function() return cfg.movement.thirdPerson end, function(v) cfg.movement.thirdPerson = v end)
-        y = y + 35
-        makeToggle(content, "Anti-AFK", y, function() return cfg.movement.antiAfk end, function(v) cfg.movement.antiAfk = v end)
-        y = y + 35
-        makeToggle(content, "Gravity Hack", y, function() return cfg.movement.gravity end, function(v) cfg.movement.gravity = v end)
-        y = y + 35
-        makeSlider(content, "Fly Speed", y, 10, 300, function() return cfg.movement.flySpeed end, function(v) cfg.movement.flySpeed = v end)
-        y = y + 40
-        makeSlider(content, "Walk Speed", y, 16, 200, function() return cfg.movement.speedVal end, function(v) cfg.movement.speedVal = v end)
-        y = y + 40
-        makeSlider(content, "Jump Height", y, 50, 500, function() return cfg.movement.jumpVal end, function(v) cfg.movement.jumpVal = v end)
-        y = y + 40
-        makeSlider(content, "Gravity %", y, 0, 200, function() return cfg.movement.gravityVal end, function(v) cfg.movement.gravityVal = v end)
-    end
-    
-    -- ====== COMBAT TAB ======
-    if currentTab == "Combat" then
-        local y = 10
-        makeToggle(content, "Spin Bot", y, function() return cfg.combat.spinBot end, function(v) cfg.combat.spinBot = v end)
-        y = y + 35
-        makeToggle(content, "Kill Aura", y, function() return cfg.combat.killAura end, function(v) cfg.combat.killAura = v end)
-        y = y + 35
-        makeToggle(content, "Hitbox Expander", y, function() return cfg.combat.hitboxExpander end, function(v) cfg.combat.hitboxExpander = v end)
-        y = y + 35
-        makeSlider(content, "Spin Speed", y, 1, 30, function() return cfg.combat.spinSpeed end, function(v) cfg.combat.spinSpeed = v end)
-        y = y + 40
-        makeSlider(content, "Kill Aura Range", y, 5, 100, function() return cfg.combat.killAuraRange end, function(v) cfg.combat.killAuraRange = v end)
-        y = y + 40
-        makeSlider(content, "Hitbox Size", y, 4, 50, function() return cfg.combat.hitboxSize end, function(v) cfg.combat.hitboxSize = v end)
-    end
-    
-    -- ====== VISUALS TAB ======
-    if currentTab == "Visuals" then
-        local y = 10
-        makeToggle(content, "FOV Changer", y, function() return cfg.visuals.fovChanger end, function(v) cfg.visuals.fovChanger = v end)
-        y = y + 35
-        makeToggle(content, "Fullbright", y, function() return cfg.visuals.fullbright end, function(v) cfg.visuals.fullbright = v end)
-        y = y + 35
-        makeSlider(content, "FOV Value", y, 40, 120, function() return cfg.visuals.fovVal end, function(v) cfg.visuals.fovVal = v end)
-    end
-    
-    menuVisible = true
-end
-
--- ====== KEYBIND ======
+-- Toggle menu with ; key
+local menuOpen = true
 UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
     if input.KeyCode == Enum.KeyCode.Semicolon then
-        createMenu()
+        menuOpen = not menuOpen
+        local gui = player.PlayerGui:FindFirstChild("Rayfield")
+        if gui then gui.Enabled = menuOpen end
     end
 end)
 
--- ====== MAIN ======
+-- ====== AIMBOT TAB ======
+local TabAimbot = Window:CreateTab("Aimbot", 4483362458)
+
+TabAimbot:CreateSection("Aimbot Settings")
+TabAimbot:CreateToggle({
+    Name = "Aimbot [Hold RMB]",
+    CurrentValue = cfg.aimbot.enabled,
+    Callback = function(v) cfg.aimbot.enabled = v end
+})
+TabAimbot:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = cfg.aimbot.teamCheck,
+    Callback = function(v) cfg.aimbot.teamCheck = v end
+})
+TabAimbot:CreateToggle({
+    Name = "Soft Aim [Hold LMB]",
+    CurrentValue = cfg.softAim.enabled,
+    Callback = function(v) cfg.softAim.enabled = v end
+})
+TabAimbot:CreateToggle({
+    Name = "Silent Aim",
+    CurrentValue = cfg.silentAim.enabled,
+    Callback = function(v) cfg.silentAim.enabled = v end
+})
+
+TabAimbot:CreateSection("Aim Settings")
+TabAimbot:CreateSlider({
+    Name = "Smoothness",
+    Range = {1, 10},
+    Increment = 1,
+    CurrentValue = cfg.aimbot.smoothness,
+    Callback = function(v) cfg.aimbot.smoothness = v end
+})
+TabAimbot:CreateSlider({
+    Name = "Soft Aim Strength",
+    Range = {1, 10},
+    Increment = 1,
+    CurrentValue = cfg.softAim.strength,
+    Callback = function(v) cfg.softAim.strength = v end
+})
+TabAimbot:CreateSlider({
+    Name = "FOV",
+    Range = {10, 500},
+    Increment = 5,
+    CurrentValue = cfg.aimbot.fov,
+    Callback = function(v) cfg.aimbot.fov = v end
+})
+
+-- ====== ESP TAB ======
+local TabESP = Window:CreateTab("ESP", 4483362458)
+
+TabESP:CreateSection("ESP Settings")
+TabESP:CreateToggle({
+    Name = "ESP",
+    CurrentValue = cfg.esp.enabled,
+    Callback = function(v) cfg.esp.enabled = v end
+})
+TabESP:CreateToggle({
+    Name = "Boxes",
+    CurrentValue = cfg.esp.boxes,
+    Callback = function(v) cfg.esp.boxes = v end
+})
+TabESP:CreateToggle({
+    Name = "Names",
+    CurrentValue = cfg.esp.names,
+    Callback = function(v) cfg.esp.names = v end
+})
+TabESP:CreateToggle({
+    Name = "Health Bars",
+    CurrentValue = cfg.esp.health,
+    Callback = function(v) cfg.esp.health = v end
+})
+TabESP:CreateToggle({
+    Name = "Tracers",
+    CurrentValue = cfg.esp.tracers,
+    Callback = function(v) cfg.esp.tracers = v end
+})
+TabESP:CreateToggle({
+    Name = "Bones",
+    CurrentValue = cfg.esp.bones,
+    Callback = function(v) cfg.esp.bones = v end
+})
+TabESP:CreateToggle({
+    Name = "Distance",
+    CurrentValue = cfg.esp.distance,
+    Callback = function(v) cfg.esp.distance = v end
+})
+TabESP:CreateToggle({
+    Name = "Rainbow",
+    CurrentValue = cfg.esp.rainbow,
+    Callback = function(v) cfg.esp.rainbow = v end
+})
+
+TabESP:CreateSection("Performance")
+TabESP:CreateSlider({
+    Name = "Max Distance",
+    Range = {500, 5000},
+    Increment = 100,
+    CurrentValue = cfg.esp.maxDistance,
+    Callback = function(v) cfg.esp.maxDistance = v end
+})
+TabESP:CreateSlider({
+    Name = "Max Players",
+    Range = {5, 50},
+    Increment = 1,
+    CurrentValue = cfg.esp.maxPlayers,
+    Callback = function(v) cfg.esp.maxPlayers = v end
+})
+
+-- ====== MOVEMENT TAB ======
+local TabMovement = Window:CreateTab("Movement", 4483362458)
+
+TabMovement:CreateSection("Movement Hacks")
+TabMovement:CreateToggle({
+    Name = "Fly [V]",
+    CurrentValue = cfg.movement.fly,
+    Callback = function(v)
+        cfg.movement.fly = v
+        if v then startFly() else stopFly() end
+    end
+})
+TabMovement:CreateToggle({
+    Name = "Speed Hack",
+    CurrentValue = cfg.movement.speed,
+    Callback = function(v)
+        cfg.movement.speed = v
+        if v and character then
+            local hum = character:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = cfg.movement.speedVal end
+        end
+    end
+})
+TabMovement:CreateToggle({
+    Name = "Jump Power",
+    CurrentValue = cfg.movement.jumpPower,
+    Callback = function(v)
+        cfg.movement.jumpPower = v
+        if v and character then
+            local hum = character:FindFirstChildOfClass("Humanoid")
+            if hum then hum.JumpPower = cfg.movement.jumpVal end
+        end
+    end
+})
+TabMovement:CreateToggle({
+    Name = "Infinite Jump",
+    CurrentValue = cfg.movement.infiniteJump,
+    Callback = function(v) cfg.movement.infiniteJump = v end
+})
+TabMovement:CreateToggle({
+    Name = "No Clip",
+    CurrentValue = cfg.movement.noClip,
+    Callback = function(v) cfg.movement.noClip = v end
+})
+TabMovement:CreateToggle({
+    Name = "No Fall Damage",
+    CurrentValue = cfg.movement.noFallDamage,
+    Callback = function(v) cfg.movement.noFallDamage = v end
+})
+TabMovement:CreateToggle({
+    Name = "Auto Sprint",
+    CurrentValue = cfg.movement.autoSprint,
+    Callback = function(v) cfg.movement.autoSprint = v end
+})
+TabMovement:CreateToggle({
+    Name = "Third Person",
+    CurrentValue = cfg.movement.thirdPerson,
+    Callback = function(v) cfg.movement.thirdPerson = v end
+})
+TabMovement:CreateToggle({
+    Name = "Anti-AFK",
+    CurrentValue = cfg.movement.antiAfk,
+    Callback = function(v) cfg.movement.antiAfk = v end
+})
+TabMovement:CreateToggle({
+    Name = "Gravity Hack",
+    CurrentValue = cfg.movement.gravity,
+    Callback = function(v) cfg.movement.gravity = v end
+})
+
+TabMovement:CreateSection("Movement Sliders")
+TabMovement:CreateSlider({
+    Name = "Fly Speed",
+    Range = {10, 300},
+    Increment = 5,
+    CurrentValue = cfg.movement.flySpeed,
+    Callback = function(v) cfg.movement.flySpeed = v end
+})
+TabMovement:CreateSlider({
+    Name = "Walk Speed",
+    Range = {16, 200},
+    Increment = 1,
+    CurrentValue = cfg.movement.speedVal,
+    Callback = function(v)
+        cfg.movement.speedVal = v
+        if cfg.movement.speed and character then
+            local hum = character:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = v end
+        end
+    end
+})
+TabMovement:CreateSlider({
+    Name = "Jump Height",
+    Range = {50, 500},
+    Increment = 5,
+    CurrentValue = cfg.movement.jumpVal,
+    Callback = function(v)
+        cfg.movement.jumpVal = v
+        if cfg.movement.jumpPower and character then
+            local hum = character:FindFirstChildOfClass("Humanoid")
+            if hum then hum.JumpPower = v end
+        end
+    end
+})
+TabMovement:CreateSlider({
+    Name = "Gravity %",
+    Range = {0, 200},
+    Increment = 5,
+    CurrentValue = cfg.movement.gravityVal,
+    Callback = function(v) cfg.movement.gravityVal = v end
+})
+
+-- ====== COMBAT TAB ======
+local TabCombat = Window:CreateTab("Combat", 4483362458)
+
+TabCombat:CreateSection("Combat Hacks")
+TabCombat:CreateToggle({
+    Name = "Spin Bot",
+    CurrentValue = cfg.combat.spinBot,
+    Callback = function(v) cfg.combat.spinBot = v end
+})
+TabCombat:CreateToggle({
+    Name = "Kill Aura",
+    CurrentValue = cfg.combat.killAura,
+    Callback = function(v) cfg.combat.killAura = v end
+})
+TabCombat:CreateToggle({
+    Name = "Hitbox Expander",
+    CurrentValue = cfg.combat.hitboxExpander,
+    Callback = function(v) cfg.combat.hitboxExpander = v end
+})
+
+TabCombat:CreateSection("Combat Sliders")
+TabCombat:CreateSlider({
+    Name = "Spin Speed",
+    Range = {1, 30},
+    Increment = 1,
+    CurrentValue = cfg.combat.spinSpeed,
+    Callback = function(v) cfg.combat.spinSpeed = v end
+})
+TabCombat:CreateSlider({
+    Name = "Kill Aura Range",
+    Range = {5, 100},
+    Increment = 1,
+    CurrentValue = cfg.combat.killAuraRange,
+    Callback = function(v) cfg.combat.killAuraRange = v end
+})
+TabCombat:CreateSlider({
+    Name = "Hitbox Size",
+    Range = {4, 50},
+    Increment = 1,
+    CurrentValue = cfg.combat.hitboxSize,
+    Callback = function(v)
+        cfg.combat.hitboxSize = v
+        -- Rebuild hitboxes with new size
+        if cfg.combat.hitboxExpander then
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= player then buildHB(p) end
+            end
+        end
+    end
+})
+
+-- ====== VISUALS TAB ======
+local TabVisuals = Window:CreateTab("Visuals", 4483362458)
+
+TabVisuals:CreateSection("Visual Settings")
+TabVisuals:CreateToggle({
+    Name = "FOV Changer",
+    CurrentValue = cfg.visuals.fovChanger,
+    Callback = function(v) cfg.visuals.fovChanger = v end
+})
+TabVisuals:CreateToggle({
+    Name = "Fullbright",
+    CurrentValue = cfg.visuals.fullbright,
+    Callback = function(v) cfg.visuals.fullbright = v end
+})
+
+TabVisuals:CreateSection("Visual Sliders")
+TabVisuals:CreateSlider({
+    Name = "FOV Value",
+    Range = {40, 120},
+    Increment = 1,
+    CurrentValue = cfg.visuals.fovVal,
+    Callback = function(v) cfg.visuals.fovVal = v end
+})
+
+-- ====== KEY INFO TAB ======
+local TabKeyInfo = Window:CreateTab("Info", 4483362458)
+TabKeyInfo:CreateSection("Vortex Hub v" .. VERSION)
+TabKeyInfo:CreateLabel("Press ; to toggle menu")
+TabKeyInfo:CreateLabel("Hold RMB for Aimbot")
+TabKeyInfo:CreateLabel("Press V for Fly")
+
+-- ============================================================
+--  MAIN LOOP
+-- ============================================================
 print("Vortex Hub v" .. VERSION .. " loaded!")
 print("Press ; to open menu")
 
